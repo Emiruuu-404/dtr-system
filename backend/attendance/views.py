@@ -6,7 +6,37 @@ from django.utils import timezone
 from .models import Intern, Attendance
 from django.contrib.auth.hashers import make_password, check_password
 import io
+from datetime import datetime, time, timedelta
 
+def get_effective_hours(start_dt, end_dt):
+    if not start_dt or not end_dt:
+        return 0
+    sec = (end_dt - start_dt).total_seconds()
+    if sec <= 0:
+        return 0
+
+    lunch_start = timezone.make_aware(datetime.combine(start_dt.date(), time(12, 0)))
+    lunch_end = timezone.make_aware(datetime.combine(start_dt.date(), time(13, 0)))
+
+    overlap_start = max(start_dt, lunch_start)
+    overlap_end = min(end_dt, lunch_end)
+    
+    if overlap_start < overlap_end:
+        sec -= (overlap_end - overlap_start).total_seconds()
+
+    return sec / 3600
+
+def format_hrs_mins(decimal_hours):
+    if decimal_hours <= 0:
+        return "0 HRS"
+    hrs = int(decimal_hours)
+    mins = int(round((decimal_hours - hrs) * 60))
+    if hrs > 0 and mins > 0:
+        return f"{hrs} hrs and {mins} mins"
+    elif hrs > 0:
+        return f"{hrs} hrs"
+    else:
+        return f"{mins} mins"
 
 @csrf_exempt
 def register(request):
@@ -167,10 +197,8 @@ def get_leaderboards(request):
         records = Attendance.objects.filter(student_id=intern.student_id)
         total_hours = 0
         for r in records:
-            if r.am_time_in and r.am_time_out:
-                total_hours += (r.am_time_out - r.am_time_in).total_seconds() / 3600
-            if r.pm_time_in and r.pm_time_out:
-                total_hours += (r.pm_time_out - r.pm_time_in).total_seconds() / 3600
+            total_hours += get_effective_hours(r.am_time_in, r.am_time_out)
+            total_hours += get_effective_hours(r.pm_time_in, r.pm_time_out)
         total_hours = round(total_hours, 2)
         
         leaderboard_data.append({
@@ -235,10 +263,8 @@ def get_status(request):
     # ===== TOTAL HOURS =====
     def compute_hours(r):
         total = 0
-        if r.am_time_in and r.am_time_out:
-            total += (r.am_time_out - r.am_time_in).total_seconds() / 3600
-        if r.pm_time_in and r.pm_time_out:
-            total += (r.pm_time_out - r.pm_time_in).total_seconds() / 3600
+        total += get_effective_hours(r.am_time_in, r.am_time_out)
+        total += get_effective_hours(r.pm_time_in, r.pm_time_out)
         return total
 
     all_records = Attendance.objects.filter(student_id=student_id)
@@ -275,6 +301,7 @@ def get_status(request):
         "last_time_in": last_time_in,
         "today_logs": today_logs,
         "total_hours": total_hours,
+        "formatted_total_hours": format_hrs_mins(total_hours),
         "total_required": 486
     })
 
@@ -296,10 +323,8 @@ def get_history(request):
     for r in records:
         # Calculate hours
         total_hours = 0
-        if r.am_time_in and r.am_time_out:
-            total_hours += (r.am_time_out - r.am_time_in).total_seconds() / 3600
-        if r.pm_time_in and r.pm_time_out:
-            total_hours += (r.pm_time_out - r.pm_time_in).total_seconds() / 3600
+        total_hours += get_effective_hours(r.am_time_in, r.am_time_out)
+        total_hours += get_effective_hours(r.pm_time_in, r.pm_time_out)
         total_hours = round(total_hours, 2)
 
         # Determine first in and last out
@@ -324,6 +349,7 @@ def get_history(request):
             "in": first_in,
             "out": last_out,
             "hours": total_hours,
+            "formatted_hours": format_hrs_mins(total_hours),
             "status": status,
         })
 

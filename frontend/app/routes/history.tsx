@@ -258,7 +258,7 @@ export default function History() {
                                             {r.hours !== undefined && r.hours > 0 && (
                                                 <div className="bg-green-50 px-4 py-3 border-t-2 border-green-900 flex justify-between items-center">
                                                     <span className="text-xs font-black uppercase tracking-widest text-green-900">Total Hours</span>
-                                                    <span className="font-black text-lg text-green-800">{r.hours} HRS</span>
+                                                    <span className="font-black text-lg text-green-800 uppercase">{r.formatted_hours || `${r.hours} HRS`}</span>
                                                 </div>
                                             )}
                                         </div>
