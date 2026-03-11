@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar, Clock as ClockIcon, AlertCircle, CheckCircle } from "lucide-react";
+import { useNavigate } from "react-router";
 import { API_URL } from "../config";
 
 export default function Dashboard() {
@@ -32,8 +33,14 @@ export default function Dashboard() {
     const [fallbackName, setFallbackName] = useState("Intern");
     const [studentId, setStudentId] = useState<string | null>(null);
 
+    const navigate = useNavigate();
+
     useEffect(() => {
         const id = localStorage.getItem("student_id");
+        if (!id) {
+            navigate("/login");
+            return;
+        }
         setStudentId(id);
         const savedName = localStorage.getItem("name");
         if (savedName) setFallbackName(savedName);
