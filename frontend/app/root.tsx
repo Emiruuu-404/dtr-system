@@ -48,7 +48,7 @@ import { useEffect } from "react";
 
 export default function App() {
   const location = useLocation();
-  const hideNavbarRoutes = ["/login", "/register"];
+  const hideNavbarRoutes = ["/login", "/register", "/forgot-password"];
   const showNavbar = !hideNavbarRoutes.includes(location.pathname);
 
   useEffect(() => {

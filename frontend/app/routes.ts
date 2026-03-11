@@ -30,6 +30,14 @@ export default [
         file: "./routes/register.tsx",
     },
     {
+        path: "/forgot-password",
+        file: "./routes/forgot-password.tsx",
+    },
+    {
+        path: "/settings",
+        file: "./routes/settings.tsx",
+    },
+    {
         path: "*",
         file: "./routes/catchall.tsx",
     },

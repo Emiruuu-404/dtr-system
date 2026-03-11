@@ -107,7 +107,7 @@ export default function Login() {
                     </button>
 
                     <div className="mt-4 text-center">
-                        <a href="#" className="text-xs font-bold text-green-700 hover:text-green-900 uppercase tracking-widest underline decoration-2 underline-offset-4">Forgot Password?</a>
+                        <Link to="/forgot-password" className="text-xs font-bold text-green-700 hover:text-green-900 uppercase tracking-widest underline decoration-2 underline-offset-4">Forgot Password?</Link>
                     </div>
                 </form>
 

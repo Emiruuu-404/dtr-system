@@ -742,3 +742,116 @@ def download_dtr(request):
     filename = f"DTR_{user.name.replace(' ', '_')}_{month_name}_{year}.docx"
     response = FileResponse(buffer, as_attachment=True, filename=filename)
     return response
+
+
+@csrf_exempt
+def forgot_password(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST request required"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    student_id = data.get("student_id")
+    email = data.get("email")
+    new_password = data.get("new_password")
+
+    if not all([student_id, email, new_password]):
+        return JsonResponse({"error": "All fields are required"}, status=400)
+
+    if len(new_password) < 8:
+        return JsonResponse({"error": "Password must be at least 8 characters"}, status=400)
+
+    try:
+        user = Intern.objects.get(student_id=student_id, email=email)
+        user.password = make_password(new_password)
+        user.save()
+        return JsonResponse({"message": "Password reset successfully"})
+    except Intern.DoesNotExist:
+        return JsonResponse({"error": "No account found with that Student ID and Email"}, status=404)
+
+
+@csrf_exempt
+def change_password(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST request required"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    student_id = data.get("student_id")
+    current_password = data.get("current_password")
+    new_password = data.get("new_password")
+
+    if not all([student_id, current_password, new_password]):
+        return JsonResponse({"error": "All fields are required"}, status=400)
+
+    if len(new_password) < 8:
+        return JsonResponse({"error": "New password must be at least 8 characters"}, status=400)
+
+    try:
+        user = Intern.objects.get(student_id=student_id)
+        if not check_password(current_password, user.password):
+            return JsonResponse({"error": "Current password is incorrect"}, status=401)
+
+        user.password = make_password(new_password)
+        user.save()
+        return JsonResponse({"message": "Password changed successfully"})
+    except Intern.DoesNotExist:
+        return JsonResponse({"error": "Account not found"}, status=404)
+
+
+@csrf_exempt
+def update_profile(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST request required"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    student_id = data.get("student_id")
+    name = data.get("name")
+    email = data.get("email")
+
+    if not student_id:
+        return JsonResponse({"error": "Missing student_id"}, status=400)
+
+    try:
+        user = Intern.objects.get(student_id=student_id)
+
+        if name:
+            user.name = name
+        if email:
+            # Check if email is already taken by another user
+            existing = Intern.objects.filter(email=email).exclude(student_id=student_id).first()
+            if existing:
+                return JsonResponse({"error": "Email is already in use"}, status=400)
+            user.email = email
+
+        user.save()
+        return JsonResponse({"message": "Profile updated successfully", "name": user.name, "email": user.email})
+    except Intern.DoesNotExist:
+        return JsonResponse({"error": "Account not found"}, status=404)
+
+
+def get_profile(request):
+    student_id = request.GET.get("student_id")
+    if not student_id:
+        return JsonResponse({"error": "Missing student_id"}, status=400)
+
+    try:
+        user = Intern.objects.get(student_id=student_id)
+        return JsonResponse({
+            "name": user.name,
+            "email": user.email,
+            "student_id": user.student_id
+        })
+    except Intern.DoesNotExist:
+        return JsonResponse({"error": "Account not found"}, status=404)
+
