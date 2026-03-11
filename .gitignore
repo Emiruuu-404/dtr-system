@@ -1,0 +1,27 @@
+# Python
+*.pyc
+__pycache__/
+venv/
+venve/
+.env
+
+# Database
+db.sqlite3
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_docx*.py
+import_logs.py
+
+# Uploads
+uploads/
+
+# Static files (generated)
+staticfiles/

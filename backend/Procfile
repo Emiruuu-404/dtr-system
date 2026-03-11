@@ -1,0 +1,1 @@
+web: gunicorn ojt_backend.wsgi:application
