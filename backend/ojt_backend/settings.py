@@ -93,13 +93,23 @@ DATABASES = {
 }
 
 # FOR RENDER DEPLOYMENT
-if os.environ.get("DATABASE_URL"):
+if os.environ.get('RENDER'):
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        raise ValueError("CRITICAL ERROR: DATABASE_URL environment variable is MISSING in Render! Please add it in Render Dashboard -> Environment Variables.")
+    
+    DATABASES['default'] = dj_database_url.config(
+        default=db_url,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+elif os.environ.get("DATABASE_URL"):
     DATABASES['default'] = dj_database_url.config(
         default=os.environ.get("DATABASE_URL"),
         conn_max_age=600,
         conn_health_checks=True,
     )
-    # Ensure psycopg2 works with dj-database-url
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
 
 # Password validation
