@@ -31,3 +31,22 @@ class Attendance(models.Model):
 
     def __str__(self):
         return f"{self.student_id} - {self.date}"
+
+
+class AccomplishmentReport(models.Model):
+    student_id = models.CharField(max_length=50)
+    date = models.DateField(auto_now_add=True)
+    notes = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Report {self.id} - {self.student_id} ({self.date})"
+
+
+class AccomplishmentImage(models.Model):
+    report = models.ForeignKey(AccomplishmentReport, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="accomplishments/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image for Report {self.report.id}"

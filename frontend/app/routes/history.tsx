@@ -12,6 +12,7 @@ export default function History() {
     
     // Custom Confirmation Modals
     const [confirmAction, setConfirmAction] = useState<{type: 'SAVE' | 'UPDATE', payload: any} | null>(null);
+    const [savingRecord, setSavingRecord] = useState(false);
 
     const formatTimeForInput = (timeStr: string) => {
         if (!timeStr || timeStr === "--:--") return "";
@@ -367,29 +368,31 @@ export default function History() {
             {confirmAction && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
                     <div className="bg-white p-6 w-full max-w-sm border-4 border-green-900 shadow-[8px_8px_0px_0px_rgba(20,83,45,1)]">
-                        <div className="flex flex-col items-center text-center space-y-4">
-                            <div className="bg-yellow-100 p-3 rounded-full border-2 border-yellow-500">
-                                <Info size={32} strokeWidth={2.5} className="text-yellow-600" />
+                        <div className="flex flex-col items-center flex-col justify-center text-center">
+                            <div className="w-16 h-16 rounded-full border-[3px] border-yellow-500 mb-4 flex items-center justify-center">
+                                <Info size={36} strokeWidth={2.5} className="text-yellow-500" />
                             </div>
-                            <h3 className="text-2xl font-black text-gray-900 uppercase tracking-wide">Confirmation</h3>
-                            <p className="text-sm font-bold text-gray-600 uppercase tracking-widest mt-2">
-                                {confirmAction.type === 'SAVE' ? "Are you sure you want to save this record?" : "Are you sure you want to update this record?"}
+                            <h3 className="text-xl font-black text-gray-900 uppercase tracking-wide mb-4">CONFIRMATION</h3>
+                            <p className="text-xs font-bold text-gray-700 uppercase tracking-widest mb-6 px-4">
+                                {confirmAction.type === 'SAVE' ? "ARE YOU SURE YOU WANT TO SAVE THIS RECORD?" : "ARE YOU SURE YOU WANT TO UPDATE THIS RECORD?"}
                             </p>
                             
-                            <div className="grid grid-cols-2 gap-3 pt-4 w-full">
+                            <div className="flex gap-4 w-full justify-center">
                                 <button 
                                     type="button" 
+                                    disabled={savingRecord}
                                     onClick={() => setConfirmAction(null)} 
-                                    className="bg-gray-100 text-gray-700 p-3 border-2 border-gray-900 hover:bg-gray-200 font-black uppercase text-sm"
+                                    className="bg-white text-gray-900 border-2 border-gray-900 font-black uppercase text-xs py-3 px-6 hover:bg-gray-100 disabled:opacity-50"
                                 >
-                                    Cancel
+                                    CANCEL
                                 </button>
                                 <button 
                                     type="button"
+                                    disabled={savingRecord}
                                     onClick={() => {
                                         const type = confirmAction.type;
                                         const payload = confirmAction.payload;
-                                        setConfirmAction(null);
+                                        setSavingRecord(true);
 
                                         if (type === 'SAVE') {
                                             fetch(`${API_URL}/api/add-past-record/`, {
@@ -399,9 +402,14 @@ export default function History() {
                                             })
                                             .then(res => res.json())
                                             .then(data => {
+                                                setSavingRecord(false);
+                                                setConfirmAction(null);
                                                 setIsAddingPastRecord(false);
                                                 if (data.message) fetchRecords();
                                                 else alert(data.error);
+                                            })
+                                            .catch(() => {
+                                                setSavingRecord(false);
                                             });
                                         } else {
                                             payload.record_id = editingRecord.id;
@@ -412,15 +420,21 @@ export default function History() {
                                             })
                                             .then(res => res.json())
                                             .then(data => {
+                                                setSavingRecord(false);
+                                                setConfirmAction(null);
                                                 setEditingRecord(null);
                                                 if (data.message) fetchRecords();
                                                 else alert(data.error);
+                                            })
+                                            .catch(() => {
+                                                setSavingRecord(false);
                                             });
                                         }
                                     }} 
-                                    className="bg-green-700 text-white p-3 border-2 border-green-900 hover:bg-green-800 font-black uppercase text-sm"
+                                    className="bg-green-700 text-white border-2 border-green-900 font-black uppercase text-xs py-3 px-6 hover:bg-green-800 disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    Yes, {confirmAction.type === 'SAVE' ? 'Save' : 'Update'}
+                                    {savingRecord && <Loader2 size={16} className="animate-spin" />}
+                                    {savingRecord ? 'PROCESSING...' : `YES, ${confirmAction.type === 'SAVE' ? 'SAVE' : 'UPDATE'}`}
                                 </button>
                             </div>
                         </div>

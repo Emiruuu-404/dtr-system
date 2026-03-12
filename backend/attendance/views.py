@@ -3,10 +3,11 @@ import re
 from django.http import JsonResponse, FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .models import Intern, Attendance
+from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage
 from django.contrib.auth.hashers import make_password, check_password
 import io
 from datetime import datetime, time, timedelta
+import math
 
 def get_effective_hours(start_dt, end_dt):
     if not start_dt or not end_dt:
@@ -296,6 +297,22 @@ def get_status(request):
             {"in": "--:--", "out": "--:--", "in_label": "PM IN", "out_label": "PM OUT"}
         ]
 
+    # ===== ESTIMATED END DATE =====
+    total_required = 486
+    remaining_hours = max(total_required - total_hours, 0)
+    
+    if remaining_hours == 0:
+        est_date_str = "Completed"
+    else:
+        remaining_days = math.ceil(remaining_hours / 8)
+        est = today
+        added_days = 0
+        while added_days < remaining_days:
+            est += timedelta(days=1)
+            if est.weekday() < 5:
+                added_days += 1
+        est_date_str = est.strftime("%b %d, %Y")
+
     return JsonResponse({
         "name": user.name.split()[0],
         "status": status,
@@ -303,7 +320,8 @@ def get_status(request):
         "today_logs": today_logs,
         "total_hours": total_hours,
         "formatted_total_hours": format_hrs_mins(total_hours),
-        "total_required": 486
+        "total_required": total_required,
+        "est_end_date": est_date_str
     })
 
 
@@ -596,10 +614,22 @@ def edit_record(request):
         elif am_out_obj:
             aware_time_out = timezone.make_aware(datetime.combine(date_obj, am_out_obj))
 
-        record.am_time_in = timezone.make_aware(datetime.combine(date_obj, am_in_obj)) if am_in_obj else None
-        record.am_time_out = timezone.make_aware(datetime.combine(date_obj, am_out_obj)) if am_out_obj else None
-        record.pm_time_in = timezone.make_aware(datetime.combine(date_obj, pm_in_obj)) if pm_in_obj else None
-        record.pm_time_out = timezone.make_aware(datetime.combine(date_obj, pm_out_obj)) if pm_out_obj else None
+        # Get existing values
+        old_am_in = record.am_time_in
+        old_am_out = record.am_time_out
+        old_pm_in = record.pm_time_in
+        old_pm_out = record.pm_time_out
+
+        # Update if a valid new objects exists, else if explicitly empty string from form update to None, 
+        # but keep existing if not passed.
+        if "am_in" in data:
+            record.am_time_in = timezone.make_aware(datetime.combine(date_obj, am_in_obj)) if am_in_obj else None
+        if "am_out" in data:
+            record.am_time_out = timezone.make_aware(datetime.combine(date_obj, am_out_obj)) if am_out_obj else None
+        if "pm_in" in data:
+            record.pm_time_in = timezone.make_aware(datetime.combine(date_obj, pm_in_obj)) if pm_in_obj else None
+        if "pm_out" in data:
+            record.pm_time_out = timezone.make_aware(datetime.combine(date_obj, pm_out_obj)) if pm_out_obj else None
         record.save()
 
         return JsonResponse({"message": "Record updated successfully"})
@@ -665,7 +695,7 @@ def download_dtr(request):
     doc = docx.Document(template_path)
 
     # Helper to replace text while keeping underline and fixing font to prevent 2nd page spill
-    def replace_paragraph(index, search, replacement, length=40):
+    def replace_paragraph(index, search, replacement, length=40, font_size=10, bold_name=True):
         if len(doc.paragraphs) > index:
             p = doc.paragraphs[index]
             p.clear()  # Clear existing runs
@@ -675,15 +705,15 @@ def download_dtr(request):
             if search:
                 r1 = p.add_run(search + " ")
                 r1.font.name = 'Times New Roman'
-                r1.font.size = Pt(11)
+                r1.font.size = Pt(font_size)
             
             # Pad with non-breaking spaces to preserve underline width
             padded = replacement.upper().center(length, "\u00A0") if replacement else ("\u00A0" * length)
             run2 = p.add_run(padded)
             run2.underline = True
-            run2.bold = True
+            run2.bold = bold_name
             run2.font.name = 'Times New Roman'
-            run2.font.size = Pt(11)
+            run2.font.size = Pt(font_size)
 
     # Helper to insert tiny checks inline with native underline
     def check_inline(index, search, replacement):
@@ -707,17 +737,17 @@ def download_dtr(request):
                     break
 
     # Replace NAME
-    replace_paragraph(6, "NAME:", user.name, 40)
-    replace_paragraph(39, "NAME:", user.name, 40)
+    replace_paragraph(6, "NAME:", user.name, 40, 10)
+    replace_paragraph(39, "NAME:", user.name, 40, 10)
     
     # Replace MONTH
-    replace_paragraph(8, "For the month of", month_str, 35)
-    replace_paragraph(41, "For the month of", month_str, 35)
+    replace_paragraph(8, "For the month of", month_str, 35, 10)
+    replace_paragraph(41, "For the month of", month_str, 35, 10)
     
     # Replace SUPERVISOR (paragraphs 25 and 58 might be the underline lines, let's verify via lengths)
     if supervisor:
-        replace_paragraph(25, "", supervisor, 40)
-        replace_paragraph(58, "", supervisor, 40)
+        replace_paragraph(25, "", supervisor, 35, 8, bold_name=True)
+        replace_paragraph(58, "", supervisor, 35, 8, bold_name=True)
         
     # Checkmarks
     if day_type == "Regular":
@@ -771,7 +801,7 @@ def download_dtr(request):
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
-
+    
     filename = f"DTR_{user.name.replace(' ', '_')}_{month_name}_{year}.docx"
     response = FileResponse(buffer, as_attachment=True, filename=filename)
     return response
@@ -887,4 +917,59 @@ def get_profile(request):
         })
     except Intern.DoesNotExist:
         return JsonResponse({"error": "Account not found"}, status=404)
+
+
+@csrf_exempt
+def submit_report(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST request required"}, status=405)
+
+    student_id = request.POST.get("student_id")
+    notes = request.POST.get("notes")
+    images = request.FILES.getlist("images")
+
+    if not student_id or not notes:
+        return JsonResponse({"error": "Student ID and notes are required"}, status=400)
+
+    try:
+        intern = Intern.objects.get(student_id=student_id)
+        
+        # Create Report
+        report = AccomplishmentReport.objects.create(student_id=student_id, notes=notes)
+        
+        # Save Images
+        for image in images:
+            AccomplishmentImage.objects.create(report=report, image=image)
+        
+        return JsonResponse({"message": "Report submitted successfully!", "report_id": report.id})
+    except Intern.DoesNotExist:
+        return JsonResponse({"error": "Account not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def get_reports(request):
+    student_id = request.GET.get("student_id")
+    if not student_id:
+        return JsonResponse({"error": "Missing student_id"}, status=400)
+
+    try:
+        from django.conf import settings
+        reports = AccomplishmentReport.objects.filter(student_id=student_id).order_by("-created_at")
+        
+        results = []
+        for r in reports:
+            image_urls = [request.build_absolute_uri(settings.MEDIA_URL + str(img.image)) for img in r.images.all()]
+            results.append({
+                "id": r.id,
+                "date": r.date.strftime("%b %d, %Y"),
+                "time": timezone.localtime(r.created_at).strftime("%I:%M %p"),
+                "notes": r.notes,
+                "images": len(image_urls),
+                "image_urls": image_urls
+            })
+            
+        return JsonResponse({"reports": results})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 

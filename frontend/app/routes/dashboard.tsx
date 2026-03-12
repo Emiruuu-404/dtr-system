@@ -61,14 +61,23 @@ export default function Dashboard() {
             </header>
 
             <div className="grid gap-4">
-                <div className="bg-white p-6 border-2 border-green-900 flex items-center justify-between">
-                    <div>
-                        <p className="text-sm font-bold text-gray-500 mb-1 uppercase tracking-widest">Total OJT Hours</p>
-                        <h2 className="text-4xl font-black text-green-700">{statusData?.total_hours ?? 0} <span className="text-xl font-bold text-gray-400">/ {statusData?.total_required ?? 486}</span></h2>
+                <div className="bg-white p-6 border-2 border-green-900 flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-bold text-gray-500 mb-1 uppercase tracking-widest">Total OJT Hours</p>
+                            <h2 className="text-4xl font-black text-green-700">{statusData?.total_hours ?? 0} <span className="text-xl font-bold text-gray-400">/ {statusData?.total_required ?? 486}</span></h2>
+                        </div>
+                        <div className="w-14 h-14 bg-green-100 flex items-center justify-center border-2 border-green-900 shrink-0">
+                            <Calendar className="text-green-800" strokeWidth={2.5} size={28} />
+                        </div>
                     </div>
-                    <div className="w-14 h-14 bg-green-100 flex items-center justify-center border-2 border-green-900">
-                        <Calendar className="text-green-800" strokeWidth={2.5} size={28} />
-                    </div>
+                    {statusData?.est_end_date && (
+                        <div className="bg-green-50 border-2 border-green-900 p-3 mt-1">
+                            <p className="text-[10px] font-black text-green-800 uppercase tracking-widest mb-1">Estimated End Date</p>
+                            <p className="text-green-900 font-bold text-sm tracking-wide">{statusData.est_end_date}</p>
+                            <p className="text-[9px] font-bold text-green-700 uppercase tracking-widest mt-1 opacity-80">*Excludes weekends (Sat & Sun)</p>
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-white p-6 border-2 border-green-900">
@@ -147,32 +156,41 @@ export default function Dashboard() {
                         <p className="text-sm font-bold text-gray-500 mb-4 uppercase tracking-widest flex items-center gap-2">
                             Manual Time Entry
                         </p>
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div>
-                                <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Morning In</label>
-                                <input type="time" name="am_in" max="12:00" defaultValue={formatTimeForInput(statusData.today_logs?.[0]?.in)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Morning Out</label>
-                                <input type="time" name="am_out" max="13:00" defaultValue={formatTimeForInput(statusData.today_logs?.[0]?.out)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Afternoon In</label>
-                                <input type="time" name="pm_in" min="12:01" defaultValue={formatTimeForInput(statusData.today_logs?.[1]?.in)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Afternoon Out</label>
-                                <input type="time" name="pm_out" min="12:01" defaultValue={formatTimeForInput(statusData.today_logs?.[1]?.out)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
-                            </div>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="bg-green-700 w-full text-white p-4 border-2 border-green-900 hover:bg-green-800 transition-colors flex items-center justify-center font-black text-sm uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative disabled:opacity-50 disabled:active:translate-x-0 disabled:active:translate-y-0"
-                        >
-                            <span className="absolute inset-0 bg-green-900 -z-10 translate-x-1 translate-y-1 hidden"></span>
-                            RECORD TIME
-                        </button>
+                        
+                        {(() => {
+                            const isFullyRecorded = statusData?.today_logs?.length === 2 && statusData.today_logs.every((l: any) => l.in && l.out);
+                            
+                            return (
+                                <>
+                                    <div className="grid grid-cols-2 gap-3 mb-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Morning In</label>
+                                            <input type="time" name="am_in" max="12:00" disabled={isFullyRecorded} defaultValue={formatTimeForInput(statusData.today_logs?.[0]?.in)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Morning Out</label>
+                                            <input type="time" name="am_out" max="13:00" disabled={isFullyRecorded} defaultValue={formatTimeForInput(statusData.today_logs?.[0]?.out)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Afternoon In</label>
+                                            <input type="time" name="pm_in" min="12:01" disabled={isFullyRecorded} defaultValue={formatTimeForInput(statusData.today_logs?.[1]?.in)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Afternoon Out</label>
+                                            <input type="time" name="pm_out" min="12:01" disabled={isFullyRecorded} defaultValue={formatTimeForInput(statusData.today_logs?.[1]?.out)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50" />
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={loading || isFullyRecorded}
+                                        className="bg-green-700 w-full text-white p-4 border-2 border-green-900 hover:bg-green-800 transition-colors flex items-center justify-center font-black text-sm uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative disabled:opacity-50 disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:hover:bg-green-700 disabled:cursor-not-allowed"
+                                    >
+                                        <span className="absolute inset-0 bg-green-900 -z-10 translate-x-1 translate-y-1 hidden"></span>
+                                        {isFullyRecorded ? "ALL PUNCHES RECORDED" : "RECORD TIME"}
+                                    </button>
+                                </>
+                            );
+                        })()}
                     </form>
                 )}
             </div>
