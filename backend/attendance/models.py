@@ -11,7 +11,6 @@ class Student(models.Model):
         return self.name
 
 
-
 class Intern(models.Model):
     student_id = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100)
@@ -22,7 +21,7 @@ class Intern(models.Model):
         return f"{self.student_id} - {self.name}"
 
 class Attendance(models.Model):
-    student_id = models.CharField(max_length=20)
+    student_id = models.CharField(max_length=50)
     date = models.DateField()
 
     am_time_in = models.DateTimeField(null=True, blank=True)

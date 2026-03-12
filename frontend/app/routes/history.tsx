@@ -9,6 +9,9 @@ export default function History() {
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [selectedMonth, setSelectedMonth] = useState<string>("");
     const [expandedId, setExpandedId] = useState<number | null>(null);
+    
+    // Custom Confirmation Modals
+    const [confirmAction, setConfirmAction] = useState<{type: 'SAVE' | 'UPDATE', payload: any} | null>(null);
 
     const formatTimeForInput = (timeStr: string) => {
         if (!timeStr || timeStr === "--:--") return "";
@@ -277,27 +280,9 @@ export default function History() {
                         <form onSubmit={(e) => {
                             e.preventDefault();
                             const formData = new FormData(e.currentTarget);
-                            const date = formData.get("date");
-                            const am_in = formData.get("am_in");
-                            const am_out = formData.get("am_out");
-                            const pm_in = formData.get("pm_in");
-                            const pm_out = formData.get("pm_out");
-                            const student_id = localStorage.getItem("student_id");
-
-                            fetch(`${API_URL}/api/add-past-record/`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ student_id, date, am_in, am_out, pm_in, pm_out })
-                            })
-                                .then(res => res.json())
-                                .then(data => {
-                                    setIsAddingPastRecord(false);
-                                    if (data.message) {
-                                        fetchRecords();
-                                    } else {
-                                        alert(data.error);
-                                    }
-                                });
+                            const payload = Object.fromEntries(formData.entries());
+                            payload.student_id = localStorage.getItem("student_id") || "";
+                            setConfirmAction({type: 'SAVE', payload});
                         }} className="space-y-4">
                             <div>
                                 <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Date</label>
@@ -315,19 +300,19 @@ export default function History() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Morning In</label>
-                                    <input type="time" name="am_in" max="12:00" className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
+                                    <input type="time" name="am_in" max="12:00" defaultValue="08:00" className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Morning Out</label>
-                                    <input type="time" name="am_out" max="13:00" className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
+                                    <input type="time" name="am_out" max="13:00" defaultValue="12:00" className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Afternoon In</label>
-                                    <input type="time" name="pm_in" min="12:01" className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
+                                    <input type="time" name="pm_in" min="12:01" defaultValue="13:00" className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
                                 </div>
                                 <div>
                                     <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Afternoon Out</label>
-                                    <input type="time" name="pm_out" min="12:01" className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
+                                    <input type="time" name="pm_out" min="12:01" defaultValue="17:00" className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm" />
                                 </div>
                             </div>
 
@@ -347,33 +332,9 @@ export default function History() {
                         <form onSubmit={(e) => {
                             e.preventDefault();
                             const formData = new FormData(e.currentTarget);
-                            const am_in = formData.get("am_in") as string;
-                            const am_out = formData.get("am_out") as string;
-                            const pm_in = formData.get("pm_in") as string;
-                            const pm_out = formData.get("pm_out") as string;
-                            const student_id = localStorage.getItem("student_id");
-
-                            fetch(`${API_URL}/api/edit-record/`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    student_id: student_id,
-                                    record_id: editingRecord.id,
-                                    am_in: am_in,
-                                    am_out: am_out,
-                                    pm_in: pm_in,
-                                    pm_out: pm_out
-                                })
-                            })
-                                .then(res => res.json())
-                                .then(data => {
-                                    setEditingRecord(null);
-                                    if (data.message) {
-                                        fetchRecords();
-                                    } else {
-                                        alert(data.error);
-                                    }
-                                });
+                            const payload = Object.fromEntries(formData.entries());
+                            payload.student_id = localStorage.getItem("student_id") || "";
+                            setConfirmAction({type: 'UPDATE', payload});
                         }} className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
@@ -399,6 +360,70 @@ export default function History() {
                                 <button type="submit" className="bg-green-700 text-white p-3 border-2 border-green-900 hover:bg-green-800 font-black uppercase">Update</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Global Custom Confirmation Modal */}
+            {confirmAction && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                    <div className="bg-white p-6 w-full max-w-sm border-4 border-green-900 shadow-[8px_8px_0px_0px_rgba(20,83,45,1)]">
+                        <div className="flex flex-col items-center text-center space-y-4">
+                            <div className="bg-yellow-100 p-3 rounded-full border-2 border-yellow-500">
+                                <Info size={32} strokeWidth={2.5} className="text-yellow-600" />
+                            </div>
+                            <h3 className="text-2xl font-black text-gray-900 uppercase tracking-wide">Confirmation</h3>
+                            <p className="text-sm font-bold text-gray-600 uppercase tracking-widest mt-2">
+                                {confirmAction.type === 'SAVE' ? "Are you sure you want to save this record?" : "Are you sure you want to update this record?"}
+                            </p>
+                            
+                            <div className="grid grid-cols-2 gap-3 pt-4 w-full">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setConfirmAction(null)} 
+                                    className="bg-gray-100 text-gray-700 p-3 border-2 border-gray-900 hover:bg-gray-200 font-black uppercase text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        const type = confirmAction.type;
+                                        const payload = confirmAction.payload;
+                                        setConfirmAction(null);
+
+                                        if (type === 'SAVE') {
+                                            fetch(`${API_URL}/api/add-past-record/`, {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify(payload)
+                                            })
+                                            .then(res => res.json())
+                                            .then(data => {
+                                                setIsAddingPastRecord(false);
+                                                if (data.message) fetchRecords();
+                                                else alert(data.error);
+                                            });
+                                        } else {
+                                            payload.record_id = editingRecord.id;
+                                            fetch(`${API_URL}/api/edit-record/`, {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify(payload)
+                                            })
+                                            .then(res => res.json())
+                                            .then(data => {
+                                                setEditingRecord(null);
+                                                if (data.message) fetchRecords();
+                                                else alert(data.error);
+                                            });
+                                        }
+                                    }} 
+                                    className="bg-green-700 text-white p-3 border-2 border-green-900 hover:bg-green-800 font-black uppercase text-sm"
+                                >
+                                    Yes, {confirmAction.type === 'SAVE' ? 'Save' : 'Update'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

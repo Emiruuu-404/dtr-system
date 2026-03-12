@@ -136,7 +136,7 @@ def time_in(request):
     ).first()
 
     # 🚫 Block if already timed in today
-    if existing and existing.time_in:
+    if existing and existing.am_time_in:
         return JsonResponse({
             "error": "You have already timed in for today."
         }, status=400)
@@ -145,12 +145,13 @@ def time_in(request):
     if not existing:
         Attendance.objects.create(
             student_id=student_id,
-            time_in=now
+            date=today,
+            am_time_in=now
         )
     else:
         # If record exists but no time_in yet
-        if not existing.time_in:
-            existing.time_in = now
+        if not existing.am_time_in:
+            existing.am_time_in = now
             existing.save()
 
     return JsonResponse({
@@ -407,15 +408,21 @@ def add_past_record(request):
         elif am_out_obj:
             aware_time_out = timezone.make_aware(datetime.combine(date_obj, am_out_obj))
 
-        # Create the past record directly
-        Attendance.objects.create(
+        record, _ = Attendance.objects.get_or_create(
             student_id=student_id,
-            date=date_obj,
-            am_time_in=timezone.make_aware(datetime.combine(date_obj, am_in_obj)) if am_in_obj else None,
-            am_time_out=timezone.make_aware(datetime.combine(date_obj, am_out_obj)) if am_out_obj else None,
-            pm_time_in=timezone.make_aware(datetime.combine(date_obj, pm_in_obj)) if pm_in_obj else None,
-            pm_time_out=timezone.make_aware(datetime.combine(date_obj, pm_out_obj)) if pm_out_obj else None,
+            date=date_obj
         )
+        
+        if am_in_obj:
+            record.am_time_in = timezone.make_aware(datetime.combine(date_obj, am_in_obj))
+        if am_out_obj:
+            record.am_time_out = timezone.make_aware(datetime.combine(date_obj, am_out_obj))
+        if pm_in_obj:
+            record.pm_time_in = timezone.make_aware(datetime.combine(date_obj, pm_in_obj))
+        if pm_out_obj:
+            record.pm_time_out = timezone.make_aware(datetime.combine(date_obj, pm_out_obj))
+            
+        record.save()
 
         return JsonResponse({"message": "Past record added successfully"})
     except Exception as e:
@@ -570,8 +577,8 @@ def edit_record(request):
         pm_out_obj = parse_time(pm_out_str)
 
         date_obj = record.date
-        if not date_obj and record.time_in:
-             date_obj = timezone.localtime(record.time_in).date()
+        if not date_obj and record.am_time_in:
+             date_obj = timezone.localtime(record.am_time_in).date()
              
         if not date_obj:
              date_obj = timezone.localtime().date() # Fallback
