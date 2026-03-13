@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Settings as SettingsIcon, User, Mail, Lock, LogOut, Save, IdCard } from "lucide-react";
 import { useNavigate } from "react-router";
 import { API_URL } from "../config";
+import AuthLoadingOverlay from "../components/AuthLoadingOverlay";
 
 export default function Settings() {
     const [profile, setProfile] = useState<any>(null);
@@ -9,6 +10,7 @@ export default function Settings() {
     const [status, setStatus] = useState<string | null>(null);
     const [statusType, setStatusType] = useState<"success" | "error">("success");
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [logoutLoading, setLogoutLoading] = useState(false);
 
     // Profile form
     const [name, setName] = useState("");
@@ -104,10 +106,16 @@ export default function Settings() {
             .catch(() => showStatus("Server error", "error"));
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        setShowLogoutConfirm(false);
+        setLogoutLoading(true);
+
+        // Small delay to let users perceive action feedback while keeping navigation responsive.
+        await new Promise((resolve) => setTimeout(resolve, 320));
+
         localStorage.removeItem("student_id");
         localStorage.removeItem("name");
-        navigate("/login");
+        navigate("/login", { replace: true });
     };
 
     if (loading) {
@@ -120,6 +128,11 @@ export default function Settings() {
 
     return (
         <div className="p-6 max-w-md mx-auto pb-24">
+            <AuthLoadingOverlay
+                open={logoutLoading}
+                title="Logging Out"
+                subtitle="Securing your session"
+            />
             <header className="mb-8 mt-4 text-center border-b-2 border-green-900 pb-6">
                 <div className="w-20 h-20 bg-green-200 border-2 border-green-900 flex items-center justify-center mx-auto mb-5 relative hover:-translate-y-2 transition-transform shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]">
                     <SettingsIcon size={36} strokeWidth={3} className="text-green-900" />

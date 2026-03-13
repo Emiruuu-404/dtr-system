@@ -12,15 +12,19 @@ import math
 def get_effective_hours(start_dt, end_dt):
     if not start_dt or not end_dt:
         return 0
-    sec = (end_dt - start_dt).total_seconds()
+
+    # Normalize to local time before computing durations and lunch overlap.
+    local_start = timezone.localtime(start_dt)
+    local_end = timezone.localtime(end_dt)
+    sec = (local_end - local_start).total_seconds()
     if sec <= 0:
         return 0
 
-    lunch_start = timezone.make_aware(datetime.combine(start_dt.date(), time(12, 0)))
-    lunch_end = timezone.make_aware(datetime.combine(start_dt.date(), time(13, 0)))
+    lunch_start = timezone.make_aware(datetime.combine(local_start.date(), time(12, 0)))
+    lunch_end = timezone.make_aware(datetime.combine(local_start.date(), time(13, 0)))
 
-    overlap_start = max(start_dt, lunch_start)
-    overlap_end = min(end_dt, lunch_end)
+    overlap_start = max(local_start, lunch_start)
+    overlap_end = min(local_end, lunch_end)
     
     if overlap_start < overlap_end:
         sec -= (overlap_end - overlap_start).total_seconds()
@@ -38,6 +42,29 @@ def format_hrs_mins(decimal_hours):
         return f"{hrs} hrs"
     else:
         return f"{mins} mins"
+
+
+def normalize_shift_times(am_in_obj, am_out_obj, pm_in_obj, pm_out_obj):
+    noon = time(12, 0)
+    one_pm = time(13, 0)
+
+    # If AM out exceeds noon, split it into PM session automatically.
+    if am_out_obj and am_out_obj > noon:
+        if not pm_out_obj:
+            pm_out_obj = am_out_obj
+        am_out_obj = noon
+        if not pm_in_obj:
+            pm_in_obj = one_pm
+
+    # If PM session exists but AM out is missing, default AM out to noon.
+    if (pm_in_obj or pm_out_obj) and not am_out_obj:
+        am_out_obj = noon
+
+    # Ensure PM IN is at least 1:00 PM when PM OUT exists.
+    if pm_out_obj and not pm_in_obj:
+        pm_in_obj = one_pm
+
+    return am_in_obj, am_out_obj, pm_in_obj, pm_out_obj
 
 @csrf_exempt
 def register(request):
@@ -412,6 +439,9 @@ def add_past_record(request):
         am_out_obj = datetime.strptime(am_out_str, "%H:%M").time() if am_out_str else None
         pm_in_obj = datetime.strptime(pm_in_str, "%H:%M").time() if pm_in_str else None
         pm_out_obj = datetime.strptime(pm_out_str, "%H:%M").time() if pm_out_str else None
+        am_in_obj, am_out_obj, pm_in_obj, pm_out_obj = normalize_shift_times(
+            am_in_obj, am_out_obj, pm_in_obj, pm_out_obj
+        )
 
         # Determine time_in and time_out bounds for calculating hours and sorting
         aware_time_in = None
@@ -494,6 +524,9 @@ def save_today_record(request):
         am_out_obj = parse_time(am_out_str)
         pm_in_obj = parse_time(pm_in_str)
         pm_out_obj = parse_time(pm_out_str)
+        am_in_obj, am_out_obj, pm_in_obj, pm_out_obj = normalize_shift_times(
+            am_in_obj, am_out_obj, pm_in_obj, pm_out_obj
+        )
 
         aware_time_in = None
         if am_in_obj:
@@ -593,6 +626,9 @@ def edit_record(request):
         am_out_obj = parse_time(am_out_str)
         pm_in_obj = parse_time(pm_in_str)
         pm_out_obj = parse_time(pm_out_str)
+        am_in_obj, am_out_obj, pm_in_obj, pm_out_obj = normalize_shift_times(
+            am_in_obj, am_out_obj, pm_in_obj, pm_out_obj
+        )
 
         date_obj = record.date
         if not date_obj and record.am_time_in:

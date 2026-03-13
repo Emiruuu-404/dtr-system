@@ -2,6 +2,7 @@ import { useState } from "react";
 import { User, Lock, Briefcase } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { API_URL } from "../config";
+import AuthLoadingOverlay from "../components/AuthLoadingOverlay";
 
 export default function Login() {
     const [loading, setLoading] = useState(false);
@@ -32,7 +33,7 @@ export default function Login() {
                 setStatus("Login successful!");
                 localStorage.setItem("student_id", payload.student_id);
                 localStorage.setItem("name", payload.name);
-                setTimeout(() => navigate("/"), 1000);
+                navigate("/", { replace: true });
                 return;
             }
 
@@ -50,6 +51,11 @@ export default function Login() {
 
     return (
         <div className="min-h-[100dvh] flex items-center justify-center p-6 bg-white">
+            <AuthLoadingOverlay
+                open={loading}
+                title="Logging In"
+                subtitle="Verifying your credentials"
+            />
             <div className="w-full max-w-md">
                 <header className="mb-8 text-center">
                     <div className="w-20 h-20 bg-green-200 border-2 border-green-900 flex items-center justify-center mx-auto mb-5 rotate-3 relative hover:rotate-0 transition-transform">

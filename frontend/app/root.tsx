@@ -112,35 +112,35 @@ export default function App() {
       {showNavbar && <Navbar />}
 
       {sessionExpired && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#2f75ed]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-green-900/90">
           <div className="bg-white p-10 w-full max-w-md rounded-lg shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-300">
             
             {/* Custom Icon wrapper */}
             <div className="mb-6 relative flex justify-center items-center">
               <svg width="120" height="90" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
                 {/* Shadow/Base */}
-                <ellipse cx="60" cy="80" rx="35" ry="5" fill="#E8F0FE" />
+                <ellipse cx="60" cy="80" rx="35" ry="5" fill="#DCFCE7" />
                 {/* Wifi signals */}
-                <path d="M32 25 Q 36 21 40 25" stroke="#B3D4FF" strokeWidth="2" strokeLinecap="round" fill="none" />
-                <path d="M26 30 Q 34 20 42 30" stroke="#D9E6FB" strokeWidth="2" strokeLinecap="round" fill="none" />
+                <path d="M32 25 Q 36 21 40 25" stroke="#86EFAC" strokeWidth="2" strokeLinecap="round" fill="none" />
+                <path d="M26 30 Q 34 20 42 30" stroke="#BBF7D0" strokeWidth="2" strokeLinecap="round" fill="none" />
                 {/* Browser Window */}
-                <rect x="35" y="32" width="50" height="34" rx="4" stroke="#2B6BDB" strokeWidth="2.5" fill="white" />
+                <rect x="35" y="32" width="50" height="34" rx="4" stroke="#166534" strokeWidth="2.5" fill="white" />
                 {/* Top Bar Line */}
-                <path d="M35 40.5H85" stroke="#2B6BDB" strokeWidth="2.5"/>
+                <path d="M35 40.5H85" stroke="#166534" strokeWidth="2.5"/>
                 {/* Top Bar Dots */}
-                <circle cx="41" cy="36.5" r="1.2" fill="#2B6BDB"/>
-                <circle cx="45" cy="36.5" r="1.2" fill="#2B6BDB"/>
-                <circle cx="49" cy="36.5" r="1.2" fill="#2B6BDB"/>
+                <circle cx="41" cy="36.5" r="1.2" fill="#166534"/>
+                <circle cx="45" cy="36.5" r="1.2" fill="#166534"/>
+                <circle cx="49" cy="36.5" r="1.2" fill="#166534"/>
                 {/* Eyes */}
-                <circle cx="48" cy="52" r="1.8" fill="#2B6BDB"/>
-                <circle cx="68" cy="52" r="1.8" fill="#2B6BDB"/>
+                <circle cx="48" cy="52" r="1.8" fill="#166534"/>
+                <circle cx="68" cy="52" r="1.8" fill="#166534"/>
                 {/* Smile */}
-                <path d="M54 58 Q 58 62 62 58" stroke="#2B6BDB" strokeWidth="2" strokeLinecap="round" />
+                <path d="M54 58 Q 58 62 62 58" stroke="#166534" strokeWidth="2" strokeLinecap="round" />
                 {/* Floating Refresh Bubble */}
-                <circle cx="85" cy="27" r="11" fill="white" stroke="#2B6BDB" strokeWidth="2"/>
+                <circle cx="85" cy="27" r="11" fill="white" stroke="#166534" strokeWidth="2"/>
                 {/* Refresh Arrow */}
-                <path d="M85 21 A 5.5 5.5 0 1 1 79.5 26.5" stroke="#2B6BDB" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                <path d="M79.5 26.5 L 82.5 26.5 M79.5 26.5 L 79.5 23" stroke="#2B6BDB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <path d="M85 21 A 5.5 5.5 0 1 1 79.5 26.5" stroke="#166534" strokeWidth="2" strokeLinecap="round" fill="none"/>
+                <path d="M79.5 26.5 L 82.5 26.5 M79.5 26.5 L 79.5 23" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               </svg>
             </div>
 
@@ -154,7 +154,7 @@ export default function App() {
                 setSessionExpired(false);
                 window.location.href = "/login";
               }}
-              className="px-10 py-3 bg-[#2f75ed] text-white rounded-full hover:bg-blue-700 transition-colors font-medium text-[15px] shadow-md"
+              className="px-10 py-3 bg-green-700 text-white rounded-full hover:bg-green-800 transition-colors font-medium text-[15px] shadow-md"
             >
               Refresh
             </button>
