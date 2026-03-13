@@ -158,7 +158,7 @@ export default function Dashboard() {
                         </p>
                         
                         {(() => {
-                            const isFullyRecorded = statusData?.today_logs?.length === 2 && statusData.today_logs.every((l: any) => l.in && l.out);
+                            const isFullyRecorded = statusData?.today_logs?.length === 2 && statusData.today_logs.every((l: any) => l.in && l.in !== "--:--" && l.out && l.out !== "--:--");
                             
                             return (
                                 <>
