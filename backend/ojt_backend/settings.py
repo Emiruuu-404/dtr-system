@@ -31,6 +31,9 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-hkzmnpaqv#!58lr^-z^7@
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
+render_external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', '').strip()
+if render_external_hostname and render_external_hostname not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(render_external_hostname)
 
 
 
@@ -171,3 +174,10 @@ CSRF_TRUSTED_ORIGINS = [
         'https://ojtdtr.systemproj.com'
     ).split(',') if origin.strip()
 ]
+
+if render_external_hostname:
+    render_origin = f'https://{render_external_hostname}'
+    if render_origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(render_origin)
+    if render_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(render_origin)

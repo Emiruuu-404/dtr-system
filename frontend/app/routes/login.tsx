@@ -8,7 +8,7 @@ export default function Login() {
     const [status, setStatus] = useState<string | null>(null);
     const navigate = useNavigate();
 
-    const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
         setStatus("Verifying credentials...");
@@ -17,27 +17,35 @@ export default function Login() {
         const student_id = (formData.get("studentId") as string).trim();
         const password = (formData.get("password") as string).trim();
 
-        fetch(`${API_URL}/api/login/`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ student_id, password })
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.message === "Login successful") {
-                    setStatus("Login successful!");
-                    localStorage.setItem("student_id", data.student_id);
-                    localStorage.setItem("name", data.name);
-                    setTimeout(() => navigate("/"), 1000);
-                } else {
-                    setStatus(data.error || "Login failed");
-                    setLoading(false);
-                }
-            })
-            .catch(() => {
-                setStatus("Server error connecting to backend");
-                setLoading(false);
+        try {
+            const response = await fetch(`${API_URL}/api/login/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ student_id, password })
             });
+
+            const contentType = response.headers.get("content-type") || "";
+            const isJson = contentType.includes("application/json");
+            const payload = isJson ? await response.json() : null;
+
+            if (response.ok && payload?.message === "Login successful") {
+                setStatus("Login successful!");
+                localStorage.setItem("student_id", payload.student_id);
+                localStorage.setItem("name", payload.name);
+                setTimeout(() => navigate("/"), 1000);
+                return;
+            }
+
+            if (isJson && payload?.error) {
+                setStatus(payload.error);
+            } else {
+                setStatus(`Backend error (${response.status}). Check API_URL: ${API_URL}`);
+            }
+        } catch {
+            setStatus(`Cannot reach backend. Check API_URL: ${API_URL}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
