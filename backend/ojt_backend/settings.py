@@ -101,7 +101,7 @@ if os.environ.get('RENDER'):
     if not db_url:
         raise ValueError("CRITICAL ERROR: DATABASE_URL environment variable is MISSING in Render! Please add it in Render Dashboard -> Environment Variables.")
     
-    DATABASES['default'] = dj_database_url.config(
+    DATABASES['default'] = dj_database_url. config(
         default=db_url,
         conn_max_age=600,
         conn_health_checks=True,
@@ -159,7 +159,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = 'uploads/'
+MEDIA_ROOT = BASE_DIR / 'uploads'
 
 CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False') == 'True'
 CORS_ALLOWED_ORIGINS = [

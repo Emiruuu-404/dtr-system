@@ -1,9 +1,10 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
 from django.http import HttpResponse
-from attendance.views import register, login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports
+from attendance.views import register, login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report
 
 def home(request):
     return HttpResponse("DTR Backend Running 🚀")
@@ -29,7 +30,14 @@ urlpatterns = [
     path('api/update-profile/', update_profile),
     path('api/profile/', get_profile),
     path('api/submit-report/', submit_report),
+    path('api/edit-report/', edit_report),
+    path('api/delete-report/', delete_report),
     path('api/reports/', get_reports),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Serve user-uploaded media even when DEBUG=False (needed for Render deployment).
+urlpatterns += [
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+]

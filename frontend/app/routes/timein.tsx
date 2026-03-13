@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Camera, UserCheck, Image as ImageIcon, FileText, CalendarDays, Clock } from "lucide-react";
+import { Camera, UserCheck, Image as ImageIcon, CalendarDays, Clock, Pencil, Trash2, Save, X } from "lucide-react";
 import { API_URL } from "../config";
 
 export default function TimeIn() {
@@ -9,6 +9,9 @@ export default function TimeIn() {
     const [activeTab, setActiveTab] = useState<'submit' | 'history'>('submit');
     const [history, setHistory] = useState<any[]>([]);
     const [fetchingHistory, setFetchingHistory] = useState(false);
+    const [editingReportId, setEditingReportId] = useState<number | null>(null);
+    const [editingNotes, setEditingNotes] = useState("");
+    const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
     const student_id = typeof window !== 'undefined' ? localStorage.getItem("student_id") : null;
 
@@ -30,6 +33,94 @@ export default function TimeIn() {
             })
             .catch(err => console.error(err))
             .finally(() => setFetchingHistory(false));
+    };
+
+    const startEdit = (report: any) => {
+        setEditingReportId(report.id);
+        setEditingNotes(report.notes || "");
+    };
+
+    const cancelEdit = () => {
+        setEditingReportId(null);
+        setEditingNotes("");
+    };
+
+    const saveEdit = async (reportId: number) => {
+        if (!student_id) {
+            setStatus("User not identified. Please log in again.");
+            return;
+        }
+
+        const trimmedNotes = editingNotes.trim();
+        if (!trimmedNotes) {
+            setStatus("Notes cannot be empty.");
+            return;
+        }
+
+        setActionLoadingId(reportId);
+        try {
+            const res = await fetch(`${API_URL}/api/edit-report/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    student_id,
+                    report_id: reportId,
+                    notes: trimmedNotes,
+                }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                setStatus(data.error || "Failed to update report.");
+                return;
+            }
+
+            setStatus("Report updated successfully!");
+            cancelEdit();
+            fetchHistory();
+        } catch {
+            setStatus("A network error occurred.");
+        } finally {
+            setActionLoadingId(null);
+            setTimeout(() => setStatus(null), 3000);
+        }
+    };
+
+    const removeReport = async (reportId: number) => {
+        if (!student_id) {
+            setStatus("User not identified. Please log in again.");
+            return;
+        }
+
+        if (!window.confirm("Delete this report? This cannot be undone.")) {
+            return;
+        }
+
+        setActionLoadingId(reportId);
+        try {
+            const res = await fetch(`${API_URL}/api/delete-report/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ student_id, report_id: reportId }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                setStatus(data.error || "Failed to delete report.");
+                return;
+            }
+
+            setStatus("Report deleted successfully!");
+            if (editingReportId === reportId) {
+                cancelEdit();
+            }
+            fetchHistory();
+        } catch {
+            setStatus("A network error occurred.");
+        } finally {
+            setActionLoadingId(null);
+            setTimeout(() => setStatus(null), 3000);
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -198,7 +289,11 @@ export default function TimeIn() {
                             No accomplishment reports found.
                         </div>
                     ) : (
-                        history.map((report) => (
+                        history.map((report) => {
+                            const isEditing = editingReportId === report.id;
+                            const isBusy = actionLoadingId === report.id;
+
+                            return (
                             <div key={report.id} className="bg-white border-2 border-green-900 relative">
                                 <div className="bg-green-100 border-b-2 border-green-900 p-3 flex justify-between items-center">
                                     <div className="flex items-center gap-2 text-green-900">
@@ -210,15 +305,63 @@ export default function TimeIn() {
                                     </div>
                                 </div>
                                 <div className="p-4 space-y-3">
-                                    <p className="text-sm font-bold text-gray-700 leading-relaxed border-l-4 border-green-500 pl-3 whitespace-pre-wrap">
-                                        "{report.notes}"
-                                    </p>
+                                    {isEditing ? (
+                                        <div className="space-y-2">
+                                            <textarea
+                                                value={editingNotes}
+                                                onChange={(e) => setEditingNotes(e.target.value)}
+                                                rows={4}
+                                                className="w-full p-3 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 resize-none text-sm leading-relaxed"
+                                            ></textarea>
+                                            <div className="flex gap-2 justify-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => saveEdit(report.id)}
+                                                    disabled={isBusy}
+                                                    className="px-3 py-2 bg-green-700 text-white border-2 border-green-900 font-black text-[10px] uppercase tracking-widest hover:bg-green-800 disabled:opacity-60 flex items-center gap-1"
+                                                >
+                                                    <Save size={12} strokeWidth={3} />
+                                                    {isBusy ? "Saving..." : "Save"}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={cancelEdit}
+                                                    disabled={isBusy}
+                                                    className="px-3 py-2 bg-white text-green-900 border-2 border-green-900 font-black text-[10px] uppercase tracking-widest hover:bg-green-100 disabled:opacity-60 flex items-center gap-1"
+                                                >
+                                                    <X size={12} strokeWidth={3} />
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm font-bold text-gray-700 leading-relaxed border-l-4 border-green-500 pl-3 whitespace-pre-wrap">
+                                            "{report.notes}"
+                                        </p>
+                                    )}
                                     <div className="pt-2 flex items-center justify-between gap-2">
                                         <div className="bg-green-50 border-2 border-green-900 px-3 py-1.5 flex items-center gap-2 w-max text-xs font-black text-green-900 uppercase tracking-widest">
                                             <ImageIcon size={14} strokeWidth={2.5} />
                                             {report.images} Photos Attached
                                         </div>
-                                        {/* Optional View Images logic can be handled later or in a modal */}
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => startEdit(report)}
+                                                disabled={isEditing || isBusy}
+                                                className="px-2 py-1 bg-white text-green-900 border-2 border-green-900 font-black text-[10px] uppercase tracking-widest hover:bg-green-100 disabled:opacity-50 flex items-center gap-1"
+                                            >
+                                                <Pencil size={12} strokeWidth={3} /> Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeReport(report.id)}
+                                                disabled={isBusy}
+                                                className="px-2 py-1 bg-white text-rose-700 border-2 border-rose-900 font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 disabled:opacity-50 flex items-center gap-1"
+                                            >
+                                                <Trash2 size={12} strokeWidth={3} /> Delete
+                                            </button>
+                                        </div>
                                     </div>
                                     {report.image_urls && report.image_urls.length > 0 && (
                                         <div className="flex gap-4 overflow-x-auto pb-4 mt-4 custom-scrollbar">
@@ -246,7 +389,7 @@ export default function TimeIn() {
                                     )}
                                 </div>
                             </div>
-                        ))
+                        )})
                     )}
                 </div>
             )}

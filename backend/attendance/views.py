@@ -948,6 +948,71 @@ def submit_report(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+@csrf_exempt
+def edit_report(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST request required"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    student_id = data.get("student_id")
+    report_id = data.get("report_id")
+    notes = (data.get("notes") or "").strip()
+
+    if not student_id or not report_id:
+        return JsonResponse({"error": "student_id and report_id are required"}, status=400)
+    if not notes:
+        return JsonResponse({"error": "Notes cannot be empty"}, status=400)
+
+    try:
+        report = AccomplishmentReport.objects.get(id=report_id, student_id=student_id)
+    except AccomplishmentReport.DoesNotExist:
+        return JsonResponse({"error": "Report not found"}, status=404)
+
+    report.notes = notes
+    report.save(update_fields=["notes"])
+
+    return JsonResponse({
+        "message": "Report updated successfully",
+        "report": {
+            "id": report.id,
+            "notes": report.notes,
+        },
+    })
+
+
+@csrf_exempt
+def delete_report(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST request required"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    student_id = data.get("student_id")
+    report_id = data.get("report_id")
+
+    if not student_id or not report_id:
+        return JsonResponse({"error": "student_id and report_id are required"}, status=400)
+
+    try:
+        report = AccomplishmentReport.objects.get(id=report_id, student_id=student_id)
+    except AccomplishmentReport.DoesNotExist:
+        return JsonResponse({"error": "Report not found"}, status=404)
+
+    for image in report.images.all():
+        if image.image:
+            image.image.delete(save=False)
+
+    report.delete()
+    return JsonResponse({"message": "Report deleted successfully"})
+
+
 def get_reports(request):
     student_id = request.GET.get("student_id")
     if not student_id:
