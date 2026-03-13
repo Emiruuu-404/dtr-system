@@ -45,7 +45,10 @@ class AccomplishmentReport(models.Model):
 
 class AccomplishmentImage(models.Model):
     report = models.ForeignKey(AccomplishmentReport, on_delete=models.CASCADE, related_name="images")
-    image = models.ImageField(upload_to="accomplishments/")
+    image = models.ImageField(upload_to="accomplishments/", null=True, blank=True)
+    image_file_name = models.CharField(max_length=255, blank=True, default="")
+    image_content_type = models.CharField(max_length=100, blank=True, default="")
+    image_blob = models.BinaryField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

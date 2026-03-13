@@ -1,6 +1,7 @@
 import json
+import mimetypes
 import re
-from django.http import JsonResponse, FileResponse
+from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage
@@ -973,9 +974,20 @@ def submit_report(request):
         # Create Report
         report = AccomplishmentReport.objects.create(student_id=student_id, notes=notes)
         
-        # Save Images
+        # Save Images: keep file storage for compatibility, and persist bytes in DB for durability.
         for image in images:
-            AccomplishmentImage.objects.create(report=report, image=image)
+            content_type = getattr(image, "content_type", "") or "application/octet-stream"
+            file_name = getattr(image, "name", "") or "upload"
+            image_bytes = image.read()
+            image.seek(0)
+
+            AccomplishmentImage.objects.create(
+                report=report,
+                image=image,
+                image_file_name=file_name,
+                image_content_type=content_type,
+                image_blob=image_bytes,
+            )
         
         return JsonResponse({"message": "Report submitted successfully!", "report_id": report.id})
     except Intern.DoesNotExist:
@@ -1055,12 +1067,11 @@ def get_reports(request):
         return JsonResponse({"error": "Missing student_id"}, status=400)
 
     try:
-        from django.conf import settings
         reports = AccomplishmentReport.objects.filter(student_id=student_id).order_by("-created_at")
         
         results = []
         for r in reports:
-            image_urls = [request.build_absolute_uri(settings.MEDIA_URL + str(img.image)) for img in r.images.all()]
+            image_urls = [request.build_absolute_uri(f"/api/report-image/{img.id}/") for img in r.images.all()]
             results.append({
                 "id": r.id,
                 "date": r.date.strftime("%b %d, %Y"),
@@ -1073,4 +1084,24 @@ def get_reports(request):
         return JsonResponse({"reports": results})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+def get_report_image(request, image_id):
+    try:
+        image = AccomplishmentImage.objects.get(id=image_id)
+    except AccomplishmentImage.DoesNotExist:
+        raise Http404("Image not found")
+
+    if image.image_blob:
+        content_type = image.image_content_type or "application/octet-stream"
+        return HttpResponse(bytes(image.image_blob), content_type=content_type)
+
+    if image.image:
+        inferred = mimetypes.guess_type(image.image.name)[0] or "application/octet-stream"
+        try:
+            return FileResponse(image.image.open("rb"), content_type=inferred)
+        except FileNotFoundError:
+            raise Http404("Image file not found")
+
+    raise Http404("Image data unavailable")
 

@@ -4,7 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
 from django.http import HttpResponse
-from attendance.views import register, login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report
+from attendance.views import register, login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report, get_report_image
 
 def home(request):
     return HttpResponse("DTR Backend Running 🚀")
@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/edit-report/', edit_report),
     path('api/delete-report/', delete_report),
     path('api/reports/', get_reports),
+    path('api/report-image/<int:image_id>/', get_report_image),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
