@@ -49,19 +49,19 @@ def normalize_shift_times(am_in_obj, am_out_obj, pm_in_obj, pm_out_obj):
     noon = time(12, 0)
     one_pm = time(13, 0)
 
-    # If AM out exceeds noon, split it into PM session automatically.
-    if am_out_obj and am_out_obj > noon:
-        if not pm_out_obj:
-            pm_out_obj = am_out_obj
+    # Only split if PM session does not exist
+    if am_out_obj and am_out_obj > noon and not pm_out_obj:
+        pm_out_obj = am_out_obj
         am_out_obj = noon
+
         if not pm_in_obj:
             pm_in_obj = one_pm
 
-    # If PM session exists but AM out is missing, default AM out to noon.
+    # If PM exists but AM out missing
     if (pm_in_obj or pm_out_obj) and not am_out_obj:
         am_out_obj = noon
 
-    # Ensure PM IN is at least 1:00 PM when PM OUT exists.
+    # Ensure PM IN exists if PM OUT exists
     if pm_out_obj and not pm_in_obj:
         pm_in_obj = one_pm
 

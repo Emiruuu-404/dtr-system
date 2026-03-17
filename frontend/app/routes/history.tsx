@@ -18,7 +18,8 @@ export default function History() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
-
+  const [confirmEdit, setConfirmEdit] = useState<any | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     type: 'SAVE' | 'UPDATE';
     payload: any;
@@ -235,7 +236,7 @@ export default function History() {
                           }
                           className="flex justify-between items-stretch border-b-2 border-green-900 bg-green-100 cursor-pointer hover:bg-green-200"
                         >
-                          <div className="flex items-center gap-3 font-black text-green-900 text-sm px-4 py-3 uppercase tracking-wide">
+                          <div className="flex items-center gap-3 font-black text-green-900 text-sm px-4 py-3 uppercase tracking-wide leading-none">
                             <CalendarDays size={18} />
                             {r.date}
                             <Info
@@ -253,16 +254,22 @@ export default function History() {
                             </span>
 
                             <button
-                              onClick={() => setEditingRecord(r)}
-                              className="ml-3"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingRecord(r);
+                              }}
+                              className="ml-3 hover:scale-110 hover:text-green-700 transition-transform cursor-pointer"
                             >
                               <Edit2 size={16} />
                             </button>
 
                             <button
-                              onClick={() => handleDelete(r.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDelete(r.id);
+                              }}
                               disabled={deletingId === r.id}
-                              className="ml-3"
+                              className="ml-3 hover:scale-110 transition-transform cursor-pointer"
                             >
                               {deletingId === r.id ? (
                                 <Loader2 size={16} className="animate-spin" />
@@ -379,6 +386,220 @@ export default function History() {
             })
         )}
       </div>
+
+      {editingRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white p-6 w-full max-w-sm border-4 border-green-900 shadow-[8px_8px_0px_0px_rgba(20,83,45,1)]">
+            <h3 className="text-2xl font-black text-gray-900 mb-4 uppercase tracking-wide border-b-2 border-green-900 pb-2">
+              Edit Record
+            </h3>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+
+                const payload = {
+                  record_id: editingRecord.id,
+                  student_id: localStorage.getItem('student_id'),
+                  am_in: String(formData.get('am_in') || ''),
+                  am_out: String(formData.get('am_out') || ''),
+                  pm_in: String(formData.get('pm_in') || ''),
+                  pm_out: String(formData.get('pm_out') || ''),
+                };
+
+                setConfirmEdit(payload);
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">
+                    Morning In
+                  </label>
+                  <input
+                    type="time"
+                    name="am_in"
+                    defaultValue={formatTimeForInput(editingRecord.am_in)}
+                    className="w-full p-2 font-bold border-2 border-green-900 focus:outline-none focus:bg-green-50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">
+                    Morning Out
+                  </label>
+                  <input
+                    type="time"
+                    name="am_out"
+                    defaultValue={formatTimeForInput(editingRecord.am_out)}
+                    className="w-full p-2 font-bold border-2 border-green-900 focus:outline-none focus:bg-green-50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">
+                    Afternoon In
+                  </label>
+                  <input
+                    type="time"
+                    name="pm_in"
+                    defaultValue={formatTimeForInput(editingRecord.pm_in)}
+                    className="w-full p-2 font-bold border-2 border-green-900 focus:outline-none focus:bg-green-50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">
+                    Afternoon Out
+                  </label>
+                  <input
+                    type="time"
+                    name="pm_out"
+                    defaultValue={formatTimeForInput(editingRecord.pm_out)}
+                    className="w-full p-2 font-bold border-2 border-green-900 focus:outline-none focus:bg-green-50"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingRecord(null)}
+                  className="bg-rose-100 text-rose-700 p-3 border-2 border-rose-900 hover:bg-rose-200 font-black uppercase"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="bg-green-700 text-white p-3 border-2 border-green-900 hover:bg-green-800 font-black uppercase"
+                >
+                  Update
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white border-4 border-green-900 p-6 w-[320px] shadow-[8px_8px_0px_0px_rgba(20,83,45,1)] animate-scaleIn">
+            <h3 className="font-black text-lg uppercase text-green-900 mb-4">
+              Delete Record?
+            </h3>
+
+            <p className="text-sm font-bold text-gray-600 mb-6">
+              Are you sure you want to delete this record?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 bg-gray-200 border-2 border-gray-600 p-2 font-black uppercase"
+              >
+                Cancel
+              </button>
+
+              <button
+                disabled={savingRecord}
+                onClick={() => {
+                  setSavingRecord(true);
+
+                  fetch(`${API_URL}/api/delete-record/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      student_id: localStorage.getItem('student_id'),
+                      record_id: confirmDelete,
+                    }),
+                  })
+                    .then((res) => res.json())
+                    .then((data) => {
+                      if (data.message) {
+                        fetchRecords();
+                      } else {
+                        alert(data.error);
+                      }
+                    })
+                    .finally(() => {
+                      setSavingRecord(false);
+                      setConfirmDelete(null);
+                    });
+                }}
+                className="flex-1 bg-red-600 text-white border-2 border-red-900 p-2 font-black uppercase disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {savingRecord ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white border-4 border-green-900 p-6 w-[320px] shadow-[8px_8px_0px_0px_rgba(20,83,45,1)]">
+            <h3 className="font-black text-lg uppercase text-green-900 mb-4">
+              Save Changes?
+            </h3>
+
+            <p className="text-sm font-bold text-gray-600 mb-6">
+              Do you want to save this edit?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmEdit(null)}
+                className="flex-1 bg-gray-200 border-2 border-gray-600 p-2 font-black uppercase"
+              >
+                Cancel
+              </button>
+
+              <button
+                disabled={savingRecord}
+                onClick={() => {
+                  setSavingRecord(true);
+
+                  fetch(`${API_URL}/api/edit-record/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(confirmEdit),
+                  })
+                    .then((res) => res.json())
+                    .then((data) => {
+                      if (data.message) {
+                        setEditingRecord(null);
+                        fetchRecords();
+                      } else {
+                        alert(data.error);
+                      }
+                    })
+                    .finally(() => {
+                      setSavingRecord(false);
+                      setConfirmEdit(null);
+                    });
+                }}
+                className="flex-1 bg-green-700 text-white border-2 border-green-900 p-2 font-black uppercase disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {savingRecord ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
