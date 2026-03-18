@@ -1,18 +1,21 @@
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import path, re_path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
 from django.http import HttpResponse
-from attendance.views import register, login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report, get_report_image
+from django.shortcuts import redirect
+
+# Dito inayos yung import, pinalitan ang 'views' ng 'upload_dtr' sa dulo
+from attendance.views import register, login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report, get_report_image, upload_dtr
 
 def home(request):
-    return HttpResponse("DTR Backend Running 🚀")
+    return redirect('/login/')
 
-
-urlpatterns = [
+urlpatterns =[
     path('', home),
     path('admin/', admin.site.urls),
+    path('login/', login_view),  
     path('api/register/', register),
     path('api/login/', login_view),
     path('api/time-in/', time_in),
@@ -34,11 +37,13 @@ urlpatterns = [
     path('api/delete-report/', delete_report),
     path('api/reports/', get_reports),
     path('api/report-image/<int:image_id>/', get_report_image),
+    
+    # Inayos ang path na ito (tinanggal ang views.)
+    path('api/upload-dtr/', upload_dtr, name='upload_dtr'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# Serve user-uploaded media even when DEBUG=False (needed for Render deployment).
-urlpatterns += [
+urlpatterns +=[
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]

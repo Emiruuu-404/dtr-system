@@ -5,24 +5,24 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-} from "react-router";
-
-import type { Route } from "./+types/root";
-import stylesheet from "./app.css?url";
-import Navbar from "./components/Navbar";
+} from 'react-router';
+import AppTour from './components/AppTour';
+import type { Route } from './+types/root';
+import stylesheet from './app.css?url';
+import Navbar from './components/Navbar';
 
 export const links: Route.LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
+  { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
   {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
+    rel: 'preconnect',
+    href: 'https://fonts.gstatic.com',
+    crossOrigin: 'anonymous',
   },
   {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+    rel: 'stylesheet',
+    href: 'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap',
   },
-  { rel: "stylesheet", href: stylesheet },
+  { rel: 'stylesheet', href: stylesheet },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -45,10 +45,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-import { useLocation, useNavigate } from "react-router";
-import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
 
-const hideNavbarRoutes = ["/login", "/register", "/forgot-password"];
+const hideNavbarRoutes = ['/login', '/register', '/forgot-password'];
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
 
 export default function App() {
@@ -57,25 +57,36 @@ export default function App() {
 
   const navigate = useNavigate();
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [runTour, setRunTour] = useState(false);
+
+  useEffect(() => {
+    const firstVisit = localStorage.getItem('tour_done');
+
+    if (!firstVisit) {
+      setRunTour(true);
+      localStorage.setItem('tour_done', 'true');
+    }
+  }, []);
 
   // Authentication & Inactivity Guard
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("student_id") !== null;
+    const isAuthenticated = localStorage.getItem('student_id') !== null;
     if (!isAuthenticated && !hideNavbarRoutes.includes(location.pathname)) {
-      navigate("/login", { replace: true });
+      navigate('/login', { replace: true });
       return;
     }
 
     // Only run activity tracker if authenticated
-    if (!isAuthenticated || hideNavbarRoutes.includes(location.pathname)) return;
+    if (!isAuthenticated || hideNavbarRoutes.includes(location.pathname))
+      return;
 
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const handleActivity = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        localStorage.removeItem("student_id");
-        localStorage.removeItem("name");
+        localStorage.removeItem('student_id');
+        localStorage.removeItem('name');
         setSessionExpired(true);
       }, SESSION_TIMEOUT_MS);
     };
@@ -84,18 +95,32 @@ export default function App() {
     handleActivity();
 
     // Listen for user activity
-    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
-    activityEvents.forEach(event => document.addEventListener(event, handleActivity));
+    const activityEvents = [
+      'mousedown',
+      'mousemove',
+      'keydown',
+      'scroll',
+      'touchstart',
+    ];
+    activityEvents.forEach((event) =>
+      document.addEventListener(event, handleActivity)
+    );
 
     return () => {
       clearTimeout(timeoutId);
-      activityEvents.forEach(event => document.removeEventListener(event, handleActivity));
+      activityEvents.forEach((event) =>
+        document.removeEventListener(event, handleActivity)
+      );
     };
   }, [location.pathname, navigate]);
 
   useEffect(() => {
     const now = new Date();
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const tomorrow = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1
+    );
     tomorrow.setHours(0, 0, 0, 0);
     const msUntilMidnight = tomorrow.getTime() - now.getTime();
 
@@ -107,52 +132,110 @@ export default function App() {
   }, []);
 
   return (
-    <div className={`min-h-[100dvh] bg-white text-gray-800 font-sans selection:bg-green-200 ${showNavbar ? "pb-20" : ""}`}>
+    <div
+      className={`min-h-[100dvh] bg-white text-gray-800 font-sans selection:bg-green-200 ${showNavbar ? 'pb-20' : ''}`}
+    >
+      <AppTour run={runTour} setRun={setRunTour} />
+
       <Outlet />
       {showNavbar && <Navbar />}
 
       {sessionExpired && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-green-900/90">
           <div className="bg-white p-10 w-full max-w-md rounded-lg shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-300">
-            
             {/* Custom Icon wrapper */}
             <div className="mb-6 relative flex justify-center items-center">
-              <svg width="120" height="90" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg
+                width="120"
+                height="90"
+                viewBox="0 0 120 90"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 {/* Shadow/Base */}
                 <ellipse cx="60" cy="80" rx="35" ry="5" fill="#DCFCE7" />
                 {/* Wifi signals */}
-                <path d="M32 25 Q 36 21 40 25" stroke="#86EFAC" strokeWidth="2" strokeLinecap="round" fill="none" />
-                <path d="M26 30 Q 34 20 42 30" stroke="#BBF7D0" strokeWidth="2" strokeLinecap="round" fill="none" />
+                <path
+                  d="M32 25 Q 36 21 40 25"
+                  stroke="#86EFAC"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+                <path
+                  d="M26 30 Q 34 20 42 30"
+                  stroke="#BBF7D0"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  fill="none"
+                />
                 {/* Browser Window */}
-                <rect x="35" y="32" width="50" height="34" rx="4" stroke="#166534" strokeWidth="2.5" fill="white" />
+                <rect
+                  x="35"
+                  y="32"
+                  width="50"
+                  height="34"
+                  rx="4"
+                  stroke="#166534"
+                  strokeWidth="2.5"
+                  fill="white"
+                />
                 {/* Top Bar Line */}
-                <path d="M35 40.5H85" stroke="#166534" strokeWidth="2.5"/>
+                <path d="M35 40.5H85" stroke="#166534" strokeWidth="2.5" />
                 {/* Top Bar Dots */}
-                <circle cx="41" cy="36.5" r="1.2" fill="#166534"/>
-                <circle cx="45" cy="36.5" r="1.2" fill="#166534"/>
-                <circle cx="49" cy="36.5" r="1.2" fill="#166534"/>
+                <circle cx="41" cy="36.5" r="1.2" fill="#166534" />
+                <circle cx="45" cy="36.5" r="1.2" fill="#166534" />
+                <circle cx="49" cy="36.5" r="1.2" fill="#166534" />
                 {/* Eyes */}
-                <circle cx="48" cy="52" r="1.8" fill="#166534"/>
-                <circle cx="68" cy="52" r="1.8" fill="#166534"/>
+                <circle cx="48" cy="52" r="1.8" fill="#166534" />
+                <circle cx="68" cy="52" r="1.8" fill="#166534" />
                 {/* Smile */}
-                <path d="M54 58 Q 58 62 62 58" stroke="#166534" strokeWidth="2" strokeLinecap="round" />
+                <path
+                  d="M54 58 Q 58 62 62 58"
+                  stroke="#166534"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
                 {/* Floating Refresh Bubble */}
-                <circle cx="85" cy="27" r="11" fill="white" stroke="#166534" strokeWidth="2"/>
+                <circle
+                  cx="85"
+                  cy="27"
+                  r="11"
+                  fill="white"
+                  stroke="#166534"
+                  strokeWidth="2"
+                />
                 {/* Refresh Arrow */}
-                <path d="M85 21 A 5.5 5.5 0 1 1 79.5 26.5" stroke="#166534" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                <path d="M79.5 26.5 L 82.5 26.5 M79.5 26.5 L 79.5 23" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <path
+                  d="M85 21 A 5.5 5.5 0 1 1 79.5 26.5"
+                  stroke="#166534"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+                <path
+                  d="M79.5 26.5 L 82.5 26.5 M79.5 26.5 L 79.5 23"
+                  stroke="#166534"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
               </svg>
             </div>
 
-            <h3 className="text-[22px] font-semibold text-[#3b435c] mb-3">Your session has expired</h3>
+            <h3 className="text-[22px] font-semibold text-[#3b435c] mb-3">
+              Your session has expired
+            </h3>
             <p className="text-[#8492a6] text-[15px] mb-8 leading-relaxed max-w-[300px]">
-              Please refresh the page. Don't worry, we kept all of your filters and breakdowns in place.
+              Please refresh the page. Don't worry, we kept all of your filters
+              and breakdowns in place.
             </p>
 
             <button
               onClick={() => {
                 setSessionExpired(false);
-                window.location.href = "/login";
+                window.location.href = '/login';
               }}
               className="px-10 py-3 bg-green-700 text-white rounded-full hover:bg-green-800 transition-colors font-medium text-[15px] shadow-md"
             >
@@ -166,15 +249,15 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Oops!";
-  let details = "An unexpected error occurred.";
+  let message = 'Oops!';
+  let details = 'An unexpected error occurred.';
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error";
+    message = error.status === 404 ? '404' : 'Error';
     details =
       error.status === 404
-        ? "The requested page could not be found."
+        ? 'The requested page could not be found.'
         : error.statusText || details;
   } else if (import.meta.env.DEV && error && error instanceof Error) {
     details = error.message;

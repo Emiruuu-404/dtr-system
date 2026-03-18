@@ -1,6 +1,7 @@
 import json
 import mimetypes
-import re
+import re, pdfplumber
+from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -9,6 +10,10 @@ from django.contrib.auth.hashers import make_password, check_password
 import io
 from datetime import datetime, time, timedelta
 import math
+from . import views
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response 
 
 def get_effective_hours(start_dt, end_dt):
     if not start_dt or not end_dt:
@@ -1105,3 +1110,98 @@ def get_report_image(request, image_id):
 
     raise Http404("Image data unavailable")
 
+@csrf_exempt
+def upload_dtr(request):
+    if request.method == 'POST':
+        student_id = request.POST.get('student_id')
+        uploaded_file = request.FILES.get('file')
+
+        try:
+            records_saved = 0
+
+            with pdfplumber.open(uploaded_file) as pdf:
+                page = pdf.pages[0]
+
+                width = page.width
+                height = page.height
+
+                # 👉 CUT LEFT SIDE (dito yung actual data)
+                left_side = page.crop((0, 0, width / 2, height))
+
+                table = left_side.extract_table()
+
+                if not table:
+                    return JsonResponse({'error': 'No table found'}, status=400)
+
+                for row in table:
+                    day_str = str(row[0]).strip() if row[0] else ""
+
+                    if not day_str.isdigit():
+                        continue
+
+                    # 👉 skip kung walang kahit anong time
+                    if not any([row[1], row[2], row[3], row[4]]):
+                        continue
+
+                    formatted_date = f"March {day_str.zfill(2)}, 2026"
+                    date_obj = datetime.strptime(formatted_date, "%B %d, %Y").date()
+
+                    def parse_time(t):
+                        if not t or t == "--:--":   
+                            return None
+                        try:
+                            return datetime.strptime(str(t).strip(), "%H:%M").time()
+                        except:
+                            return None
+
+                    am_in_obj = parse_time(row[1])
+                    am_out_obj = parse_time(row[2]) 
+                    pm_in_obj = parse_time(row[3])
+                    pm_out_obj = parse_time(row[4])
+                    if pm_in_obj and pm_in_obj.hour < 12:
+                        pm_in_obj = (datetime.combine(date_obj, pm_in_obj) + timedelta(hours=12)).time()
+
+                    if pm_out_obj and pm_out_obj.hour < 12:
+                        pm_out_obj = (datetime.combine(date_obj, pm_out_obj) + timedelta(hours=12)).time()
+
+                    Attendance.objects.update_or_create(
+                        student_id=student_id,
+                        date=date_obj,
+                        defaults={
+                            "am_time_in": timezone.make_aware(datetime.combine(date_obj, am_in_obj)) if am_in_obj else None,
+                            "am_time_out": timezone.make_aware(datetime.combine(date_obj, am_out_obj)) if am_out_obj else None,
+                            "pm_time_in": timezone.make_aware(datetime.combine(date_obj, pm_in_obj)) if pm_in_obj else None,
+                            "pm_time_out": timezone.make_aware(datetime.combine(date_obj, pm_out_obj)) if pm_out_obj else None,
+                        }
+                    )
+
+                    records_saved += 1
+
+            return JsonResponse({"message": f"{records_saved} records saved"})
+
+        except Exception as e:  # ✅ REQUIRED
+            return JsonResponse({"error": str(e)}, status=500)
+        
+
+@api_view(['POST'])
+def add_past_record(request):
+    student_id = request.data.get('student_id')
+    date = request.data.get('date')
+    am_in = request.data.get('am_in')
+    am_out = request.data.get('am_out')
+    pm_in = request.data.get('pm_in')
+    pm_out = request.data.get('pm_out')
+
+    try:
+        record = Attendance.objects.create(
+            student_id=student_id,
+            date=date,
+            am_time_in=am_in,
+            am_time_out=am_out,
+            pm_time_in=pm_in,
+            pm_time_out=pm_out,
+        )
+
+        return Response({"message": "Record added successfully"})
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)

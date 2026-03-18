@@ -53,3 +53,23 @@ class AccomplishmentImage(models.Model):
 
     def __str__(self):
         return f"Image for Report {self.report.id}"
+    
+class HistoryRecord(models.Model):
+    student_id = models.CharField(max_length=50)
+    date = models.CharField(max_length=100)  # Halimbawa: "October 25, 2023"
+    
+    # AM Shift
+    am_in = models.CharField(max_length=20, null=True, blank=True)
+    am_out = models.CharField(max_length=20, null=True, blank=True)
+    
+    # PM Shift
+    pm_in = models.CharField(max_length=20, null=True, blank=True)
+    pm_out = models.CharField(max_length=20, null=True, blank=True)
+    
+    # Main Display (ito yung 'in' at 'out' sa history card)
+    time_in = models.CharField(max_length=20, null=True, blank=True)
+    time_out = models.CharField(max_length=20, null=True, blank=True)
+    
+    hours = models.FloatField(default=0.0)
+    status = models.CharField(max_length=50, default="Completed")
+    created_at = models.DateTimeField(auto_now_add=True)
