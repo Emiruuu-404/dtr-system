@@ -9,7 +9,7 @@ services:
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
-        value: 3.12.8
+        value: 3.12.0
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
