@@ -721,6 +721,8 @@ def delete_record(request):
         return JsonResponse({"error": "Record not found"}, status=404)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def download_dtr(request):
     import docx
     from datetime import datetime
@@ -728,29 +730,32 @@ def download_dtr(request):
     import os
     from django.conf import settings
 
-    student_id = request.GET.get("student_id")
-    if not student_id:
-        return JsonResponse({"error": "Missing student_id"}, status=400)
+    # SECURED: Fetch ID from token instead of URL params
+    student_id = request.user.student_id  
+    user = request.user
 
     day_type = request.GET.get("day_type", "Regular")
     supervisor = request.GET.get("supervisor", "").strip()
-
-    try:
-        user = Intern.objects.get(student_id=student_id)
-    except Intern.DoesNotExist:
-        return JsonResponse({"error": "Intern not found"}, status=404)
 
     # Use current month and year
     now = timezone.localtime()
     year = now.year
     month = now.month
+    current_day = now.day
     month_name = calendar.month_name[month]
-    month_str = f"{month_name} {year}"
+    
+    # 15th/End of Month Cutoff Logic
+    if current_day <= 15:
+        period_suffix = "1st_Half"
+    else:
+        period_suffix = "2nd_Half"
+
+    month_str = f"{month_name} {year} ({period_suffix.replace('_', ' ')})"
 
     # Load Template
     template_path = os.path.join(settings.BASE_DIR, 'template', 'DTR_Template.docx')
     if not os.path.exists(template_path):
-        return JsonResponse({"error": "Template not found"}, status=404)
+        return Response({"error": "Template not found"}, status=404)
 
     doc = docx.Document(template_path)
 
@@ -817,7 +822,21 @@ def download_dtr(request):
         check_inline(11, "_________", "✓")
         check_inline(44, "_________", "✓")
 
-    records = Attendance.objects.filter(student_id=student_id, date__year=year, date__month=month).order_by('date')
+    if current_day <= 15:
+        records = Attendance.objects.filter(
+            student_id=student_id, 
+            date__year=year, 
+            date__month=month,
+            date__day__lte=15
+        ).order_by('date')
+    else:
+        records = Attendance.objects.filter(
+            student_id=student_id, 
+            date__year=year, 
+            date__month=month,
+            date__day__gte=16
+        ).order_by('date')
+
     
     # Group records by day
     shifts_by_day = {}
@@ -862,7 +881,7 @@ def download_dtr(request):
     doc.save(buffer)
     buffer.seek(0)
     
-    filename = f"DTR_{user.name.replace(' ', '_')}_{month_name}_{year}.docx"
+    filename = f"DTR_{user.name.replace(' ', '_')}_{month_name}_{year}_{period_suffix}.docx"
     response = FileResponse(buffer, as_attachment=True, filename=filename)
     return response
 
