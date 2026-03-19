@@ -228,3 +228,5 @@ if render_external_hostname:
         CORS_ALLOWED_ORIGINS.append(render_origin)
     if render_origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(render_origin)
+
+CORS_EXPOSE_HEADERS = ['Content-Disposition']
