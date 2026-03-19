@@ -106,7 +106,7 @@ export default function Reports() {
       }
 
       const disposition = response.headers.get('Content-Disposition');
-      let filename = 'DTR_Report.docx';
+      let filename = 'DTR_Report.pdf';
       if (disposition) {
         const match = disposition.match(/filename="?([^"]+)"?/);
         if (match) filename = match[1];

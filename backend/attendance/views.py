@@ -724,7 +724,6 @@ def delete_record(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def download_dtr(request):
-    import docx
     from datetime import datetime
     import calendar
     import os
@@ -762,76 +761,10 @@ def download_dtr(request):
 
     month_str = f"{month_name} {year} ({period_suffix.replace('_', ' ')})"
 
-    # Load Template
-    template_path = os.path.join(settings.BASE_DIR, 'template', 'DTR_Template.docx')
-    if not os.path.exists(template_path):
-        return Response({"error": "Template not found"}, status=404)
-
-    doc = docx.Document(template_path)
-
-    # Helper to replace text while keeping underline and fixing font to prevent 2nd page spill
-    def replace_paragraph(index, search, replacement, length=40, font_size=10, bold_name=True):
-        if len(doc.paragraphs) > index:
-            p = doc.paragraphs[index]
-            p.clear()  # Clear existing runs
-            
-            from docx.shared import Pt
-            
-            if search:
-                r1 = p.add_run(search + " ")
-                r1.font.name = 'Times New Roman'
-                r1.font.size = Pt(font_size)
-            
-            # Pad with non-breaking spaces to preserve underline width
-            padded = replacement.upper().center(length, "\u00A0") if replacement else ("\u00A0" * length)
-            run2 = p.add_run(padded)
-            run2.underline = True
-            run2.bold = bold_name
-            run2.font.name = 'Times New Roman'
-            run2.font.size = Pt(font_size)
-
-    # Helper to insert tiny checks inline with native underline
-    def check_inline(index, search, replacement):
-        if len(doc.paragraphs) > index:
-            p = doc.paragraphs[index]
-            for run in p.runs:
-                if search in run.text:
-                    parts = run.text.split(search)
-                    run.text = parts[0]
-                    
-                    from docx.shared import Pt
-                    padded = replacement.center(len(search) + 2, "\u00A0")
-                    r_check = p.add_run(padded)
-                    r_check.underline = True
-                    r_check.bold = True
-                    r_check.font.name = 'Times New Roman'
-                    r_check.font.size = Pt(11)
-                    
-                    if len(parts) > 1 and parts[1]:
-                        p.add_run(parts[1])
-                    break
-
-    # Replace NAME
-    replace_paragraph(6, "NAME:", user.name, 40, 10)
-    replace_paragraph(39, "NAME:", user.name, 40, 10)
+    # PDF Generator
+    from attendance.pdf_generator import generate_dtr_pdf
     
-    # Replace MONTH
-    replace_paragraph(8, "For the month of", month_str, 35, 10)
-    replace_paragraph(41, "For the month of", month_str, 35, 10)
-    
-    # Replace SUPERVISOR (paragraphs 25 and 58 might be the underline lines, let's verify via lengths)
-    if supervisor:
-        replace_paragraph(25, "", supervisor, 35, 8, bold_name=True)
-        replace_paragraph(58, "", supervisor, 35, 8, bold_name=True)
-        
-    # Checkmarks
-    if day_type == "Regular":
-        check_inline(10, "______", "✓")
-        check_inline(43, "______", "✓")
-    elif day_type == "Saturdays":
-        check_inline(11, "_________", "✓")
-        check_inline(44, "_________", "✓")
-
+    # Query Database
     if is_first_half:
         records = Attendance.objects.filter(
             student_id=student_id, 
@@ -847,52 +780,12 @@ def download_dtr(request):
             date__day__gte=16
         ).order_by('date')
 
+    # Create PDF Buffer using new pure-python lab module
+    buffer = generate_dtr_pdf(records, user, month_str, day_type, supervisor, is_first_half)
     
-    # Group records by day
-    shifts_by_day = {}
-    total_hours_month = 0
-    for r in records:
-        day = r.date.day
-        if day not in shifts_by_day:
-            shifts_by_day[day] = []
-        shifts_by_day[day].append(r)
-
-    # Populate Tables
-    for t_idx in [0, 1]:  # Two identical tables
-        if len(doc.tables) <= t_idx: break
-        table = doc.tables[t_idx]
-        
-        for day in range(1, 32):
-            if day > len(table.rows) - 2: break
-            row = table.rows[day + 1] # Row 0 & 1 are headers
-            
-            if day in shifts_by_day:
-                day_records = shifts_by_day[day]
-                # Default empty
-                am_in, am_out, pm_in, pm_out = "", "", "", ""
-                
-                rec1 = day_records[0]
-                if rec1.am_time_in:
-                    am_in = timezone.localtime(rec1.am_time_in).strftime("%I:%M")
-                if rec1.am_time_out:
-                    am_out = timezone.localtime(rec1.am_time_out).strftime("%I:%M")
-                if rec1.pm_time_in:
-                    pm_in = timezone.localtime(rec1.pm_time_in).strftime("%I:%M")
-                if rec1.pm_time_out:
-                    pm_out = timezone.localtime(rec1.pm_time_out).strftime("%I:%M")
-
-                row.cells[1].text = am_in
-                row.cells[2].text = am_out
-                row.cells[3].text = pm_in
-                row.cells[4].text = pm_out
-
-    # Save to memory
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-    
-    filename = f"DTR_{user.name.replace(' ', '_')}_{month_name}_{year}_{period_suffix}.docx"
-    response = FileResponse(buffer, as_attachment=True, filename=filename)
+    # File Response
+    filename = f"DTR_{user.name.replace(' ', '_')}_{month_name}_{year}_{period_suffix}.pdf"
+    response = FileResponse(buffer, as_attachment=True, filename=filename, content_type='application/pdf')
     return response
 
 
