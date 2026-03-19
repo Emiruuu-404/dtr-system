@@ -72,7 +72,68 @@ def normalize_shift_times(am_in_obj, am_out_obj, pm_in_obj, pm_out_obj):
 
     return am_in_obj, am_out_obj, pm_in_obj, pm_out_obj
 
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
+from rest_framework.permissions import AllowAny
+
 @api_view(['POST'])
+@permission_classes([AllowAny])
+def login_view(request):
+    data = request.data
+    student_id = data.get("studentId") or data.get("student_id")
+    password = data.get("password")
+
+    if not student_id or not password:
+        return Response({"error": "Missing fields"}, status=400)
+
+    try:
+        if "@" in student_id:
+            user_obj = Intern.objects.get(email=student_id)
+            actual_id = user_obj.student_id
+        else:
+            actual_id = student_id
+    except Intern.DoesNotExist:
+        return Response({"error": "Invalid credentials"}, status=401)
+
+    user = authenticate(request, student_id=actual_id, password=password)
+    
+    if user is not None:
+        token = RefreshToken.for_user(user)
+        return Response({
+            "message": "Login successful",
+            "student_id": user.student_id,
+            "name": user.name,
+            "session_token": str(token.access_token)
+        })
+    else:
+        return Response({"error": "Invalid credentials"}, status=401)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def verify_session(request):
+    # JWT authentication handles validation via request.user automatically
+    if request.user and request.user.is_authenticated:
+        return Response({"valid": True})
+        
+    # Fallback to check token explicitly if necessary
+    token = request.GET.get("token")
+    if not token:
+        return Response({"valid": False, "error": "Missing token"}, status=400)
+    
+    try:
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        jwt_auth = JWTAuthentication()
+        validated_token = jwt_auth.get_validated_token(token)
+        user = jwt_auth.get_user(validated_token)
+        if user:
+            return Response({"valid": True})
+    except Exception:
+        pass
+        
+    return Response({"valid": False, "error": "Logged in from another device or session expired"}, status=401)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def register(request):
     try:
         data = request.data

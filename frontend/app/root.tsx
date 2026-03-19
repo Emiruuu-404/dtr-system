@@ -54,6 +54,22 @@ import { API_URL } from './config';
 const hideNavbarRoutes = ['/login', '/register', '/forgot-password'];
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
 
+if (typeof window !== 'undefined' && !(window as any).__fetch_patched) {
+  (window as any).__fetch_patched = true;
+  const originalFetch = window.fetch;
+  window.fetch = async (...args) => {
+    let [resource, config] = args;
+    const token = localStorage.getItem('session_token');
+    if (token && typeof resource === 'string' && resource.includes(API_URL)) {
+      config = config || {};
+      const headers = new Headers(config.headers);
+      headers.set('Authorization', `Bearer ${token}`);
+      config.headers = headers;
+    }
+    return originalFetch(resource, config);
+  };
+}
+
 export default function App() {
   const location = useLocation();
   const showNavbar = !hideNavbarRoutes.includes(location.pathname);
