@@ -10,6 +10,8 @@ import AppTour from './components/AppTour';
 import type { Route } from './+types/root';
 import stylesheet from './app.css?url';
 import Navbar from './components/Navbar';
+import { Tooltip } from 'react-tooltip';
+import 'react-tooltip/dist/react-tooltip.css';
 
 export const links: Route.LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -136,6 +138,7 @@ export default function App() {
       className={`min-h-[100dvh] bg-white text-gray-800 font-sans selection:bg-green-200 ${showNavbar ? 'pb-20' : ''}`}
     >
       <AppTour run={runTour} setRun={setRunTour} />
+      <Tooltip id="nav-tooltip" place="top" style={{ zIndex: 100, backgroundColor: '#14532D', fontWeight: 'bold' }} />
 
       <Outlet />
       {showNavbar && <Navbar />}

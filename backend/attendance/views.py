@@ -132,6 +132,11 @@ def login_view(request):
             
         print(f"DEBUG LOGIN: Received password: '{password}', stored hash: '{user.password}'")
         if check_password(password, user.password):
+            # Migrate heavy password hashes to fast MD5 Hasher on successful login
+            if not user.password.startswith("md5$"):
+                user.password = make_password(password)
+                user.save()
+                
             return JsonResponse({
                 "message": "Login successful",
                 "student_id": user.student_id,
@@ -1164,15 +1169,16 @@ def upload_dtr(request):
                     if pm_out_obj and pm_out_obj.hour < 12:
                         pm_out_obj = (datetime.combine(date_obj, pm_out_obj) + timedelta(hours=12)).time()
 
-                    Attendance.objects.update_or_create(
+                    if Attendance.objects.filter(student_id=student_id, date=date_obj).exists():
+                        continue
+
+                    Attendance.objects.create(
                         student_id=student_id,
                         date=date_obj,
-                        defaults={
-                            "am_time_in": timezone.make_aware(datetime.combine(date_obj, am_in_obj)) if am_in_obj else None,
-                            "am_time_out": timezone.make_aware(datetime.combine(date_obj, am_out_obj)) if am_out_obj else None,
-                            "pm_time_in": timezone.make_aware(datetime.combine(date_obj, pm_in_obj)) if pm_in_obj else None,
-                            "pm_time_out": timezone.make_aware(datetime.combine(date_obj, pm_out_obj)) if pm_out_obj else None,
-                        }
+                        am_time_in=timezone.make_aware(datetime.combine(date_obj, am_in_obj)) if am_in_obj else None,
+                        am_time_out=timezone.make_aware(datetime.combine(date_obj, am_out_obj)) if am_out_obj else None,
+                        pm_time_in=timezone.make_aware(datetime.combine(date_obj, pm_in_obj)) if pm_in_obj else None,
+                        pm_time_out=timezone.make_aware(datetime.combine(date_obj, pm_out_obj)) if pm_out_obj else None,
                     )
 
                     records_saved += 1

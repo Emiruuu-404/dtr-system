@@ -3,20 +3,21 @@ import Joyride from 'react-joyride';
 export default function AppTour({ run, setRun }: any) {
   const steps = [
     {
-      target: '.time-in-button',
-      content: 'Click here to record your Time In.',
+      target: '.tour-timein',
+      content: 'Click here to record your Daily Time In and Out.',
+      disableBeacon: true,
     },
     {
-      target: '.history-page',
-      content: 'View your attendance history here.',
+      target: '.tour-history',
+      content: 'View and edit your attendance history here.',
     },
     {
-      target: '.edit-button',
-      content: 'You can edit your records here.',
+      target: '.tour-leaderboards',
+      content: 'Check your rank among other interns.',
     },
     {
-      target: '.download-dtr',
-      content: 'Download your DTR here.',
+      target: '.tour-reports',
+      content: 'Generate and download your DTR here.',
     },
   ];
 

@@ -8,27 +8,27 @@ export default function Navbar() {
 
     return (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-green-900 h-16 flex justify-around items-stretch z-50">
-            <NavLink to="/" className={navLinkClass}>
+            <NavLink to="/" className={(props) => `${navLinkClass(props)} tour-home`} data-tooltip-id="nav-tooltip" data-tooltip-content="Dashboard Home">
                 <LayoutDashboard strokeWidth={3} size={18} />
                 <span className="text-[9px] font-black tracking-widest uppercase mt-0.5">Home</span>
             </NavLink>
-            <NavLink to="/timein" className={navLinkClass}>
+            <NavLink to="/timein" className={(props) => `${navLinkClass(props)} tour-timein`} data-tooltip-id="nav-tooltip" data-tooltip-content="Submit Accomplishment / Logs">
                 <Clock strokeWidth={3} size={18} />
                 <span className="text-[9px] font-black tracking-widest uppercase mt-0.5">Logs</span>
             </NavLink>
-            <NavLink to="/leaderboards" className={navLinkClass}>
+            <NavLink to="/leaderboards" className={(props) => `${navLinkClass(props)} tour-leaderboards`} data-tooltip-id="nav-tooltip" data-tooltip-content="Check Intern Rankings">
                 <Trophy strokeWidth={3} size={18} />
                 <span className="text-[9px] font-black tracking-widest uppercase mt-0.5">Rank</span>
             </NavLink>
-            <NavLink to="/history" className={navLinkClass}>
+            <NavLink to="/history" className={(props) => `${navLinkClass(props)} tour-history`} data-tooltip-id="nav-tooltip" data-tooltip-content="View & Edit History">
                 <History strokeWidth={3} size={18} />
                 <span className="text-[9px] font-black tracking-widest uppercase mt-0.5">History</span>
             </NavLink>
-            <NavLink to="/reports" className={navLinkClass}>
+            <NavLink to="/reports" className={(props) => `${navLinkClass(props)} tour-reports`} data-tooltip-id="nav-tooltip" data-tooltip-content="Download DTR Documents">
                 <FileText strokeWidth={3} size={18} />
                 <span className="text-[9px] font-black tracking-widest uppercase mt-0.5">DTR</span>
             </NavLink>
-            <NavLink to="/settings" className={navLinkClass}>
+            <NavLink to="/settings" className={(props) => `${navLinkClass(props)} tour-settings`} data-tooltip-id="nav-tooltip" data-tooltip-content="Account Settings">
                 <Settings strokeWidth={3} size={18} />
                 <span className="text-[9px] font-black tracking-widest uppercase mt-0.5">More</span>
             </NavLink>
