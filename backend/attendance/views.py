@@ -11,10 +11,9 @@ import io
 from datetime import datetime, time, timedelta
 import math
 import uuid
-from . import views
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 def get_effective_hours(start_dt, end_dt):
     if not start_dt or not end_dt:
@@ -73,16 +72,12 @@ def normalize_shift_times(am_in_obj, am_out_obj, pm_in_obj, pm_out_obj):
 
     return am_in_obj, am_out_obj, pm_in_obj, pm_out_obj
 
-@csrf_exempt
+@api_view(['POST'])
 def register(request):
-
-    if request.method != "POST":
-        return JsonResponse({"error": "POST request required"}, status=405)
-
     try:
-        data = json.loads(request.body)
-    except:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        data = request.data
+    except Exception:
+        return Response({"error": "Invalid JSON"}, status=400)
 
     name = data.get("name")
     student_id = data.get("student_id")
@@ -90,94 +85,30 @@ def register(request):
     password = data.get("password")
 
     if not all([name, student_id, email, password]):
-        return JsonResponse({"error": "Missing fields"}, status=400)
+        return Response({"error": "Missing fields"}, status=400)
 
     # validate student id format XX-XXXX
     if not re.match(r"^\d{2}-\d{4}$", student_id):
-        return JsonResponse({"error": "Student ID format must be XX-XXXX"}, status=400)
+        return Response({"error": "Student ID format must be XX-XXXX"}, status=400)
 
     if Intern.objects.filter(student_id=student_id).exists():
-        return JsonResponse({"error": "Student ID already registered"}, status=400)
+        return Response({"error": "Student ID already registered"}, status=400)
 
-    user = Intern.objects.create(
+    user = Intern.objects.create_user(
         name=name,
         student_id=student_id,
         email=email,
-        password=make_password(password)
+        password=password
     )
     
-    return JsonResponse({"message": "Account created successfully"})
+    return Response({"message": "Account created successfully"})
 
+# verify_session is replaced by SimpleJWT token verification natively
 
-@csrf_exempt
-def login_view(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "POST request required"}, status=405)
-
-    try:
-        data = json.loads(request.body)
-    except:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-    student_id = data.get("student_id")
-    password = data.get("password")
-
-    if not all([student_id, password]):
-        return JsonResponse({"error": "Missing fields"}, status=400)
-
-    try:
-        if "@" in student_id:
-            user = Intern.objects.get(email=student_id)
-        else:
-            user = Intern.objects.get(student_id=student_id)
-            
-        print(f"DEBUG LOGIN: Received password: '{password}', stored hash: '{user.password}'")
-        if check_password(password, user.password):
-            # Migrate heavy password hashes to fast MD5 Hasher on successful login
-            if not user.password.startswith("md5$"):
-                user.password = make_password(password)
-                
-            new_token = str(uuid.uuid4())
-            user.session_token = new_token
-            user.save()
-            
-            return JsonResponse({
-                "message": "Login successful",
-                "student_id": user.student_id,
-                "name": user.name,
-                "session_token": new_token
-            })
-        else:
-            print(f"Unauthorized: Password mismatch for user {user.student_id}")
-            return JsonResponse({"error": "Invalid credentials"}, status=401)
-    except Intern.DoesNotExist:
-        print(f"Unauthorized: User not found for login ID {student_id}")
-        return JsonResponse({"error": "Invalid credentials"}, status=401)
-
-@csrf_exempt
-def verify_session(request):
-    student_id = request.GET.get("student_id")
-    token = request.GET.get("token")
-    if not student_id or not token:
-        return JsonResponse({"valid": False, "error": "Missing parameters"}, status=400)
-        
-    try:
-        user = Intern.objects.get(student_id=student_id)
-        if user.session_token == token:
-            return JsonResponse({"valid": True})
-        else:
-            return JsonResponse({"valid": False, "error": "Logged in from another device"})
-    except Intern.DoesNotExist:
-        return JsonResponse({"valid": False, "error": "User does not exist"}, status=404)
-
-@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def time_in(request):
-
-    if request.method != "POST":
-        return JsonResponse({"error": "POST required"}, status=405)
-
-    data = json.loads(request.body)
-    student_id = data.get("student_id")
+    student_id = request.user.student_id
 
     now = timezone.localtime()
     today = now.date()
@@ -185,7 +116,7 @@ def time_in(request):
 
     # Block if past 5 PM (17:00)
     if current_hour >= 17:
-        return JsonResponse({
+        return Response({
             "error": "OJT hours has already ended."
         }, status=400)
 
@@ -197,7 +128,7 @@ def time_in(request):
 
     # 🚫 Block if already timed in today
     if existing and existing.am_time_in:
-        return JsonResponse({
+        return Response({
             "error": "You have already timed in for today."
         }, status=400)
 
@@ -214,7 +145,7 @@ def time_in(request):
             existing.am_time_in = now
             existing.save()
 
-    return JsonResponse({
+    return Response({
         "message": "Time in recorded"
     })
 

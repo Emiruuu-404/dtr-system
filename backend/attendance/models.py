@@ -11,12 +11,35 @@ class Student(models.Model):
         return self.name
 
 
-class Intern(models.Model):
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+
+class InternManager(BaseUserManager):
+    def create_user(self, student_id, email, name, password=None, **extra_fields):
+        if not student_id:
+            raise ValueError('The Student ID field must be set')
+        email = self.normalize_email(email)
+        user = self.model(student_id=student_id, email=email, name=name, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, student_id, email, name, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        return self.create_user(student_id, email, name, password, **extra_fields)
+
+class Intern(AbstractBaseUser, PermissionsMixin):
     student_id = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    password = models.CharField(max_length=255)
-    session_token = models.CharField(max_length=255, null=True, blank=True)
+    
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    
+    objects = InternManager()
+
+    USERNAME_FIELD = 'student_id'
+    REQUIRED_FIELDS = ['email', 'name']
 
     def __str__(self):
         return f"{self.student_id} - {self.name}"
