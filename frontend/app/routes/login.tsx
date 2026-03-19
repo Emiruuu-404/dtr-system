@@ -35,6 +35,7 @@ export default function Login() {
         setStatus('Login successful!');
         localStorage.setItem('student_id', payload.student_id);
         localStorage.setItem('name', payload.name);
+        if (payload.session_token) localStorage.setItem('session_token', payload.session_token);
         navigate('/', { replace: true });
         return;
       }

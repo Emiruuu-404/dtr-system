@@ -49,6 +49,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 import { useLocation, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
+import { API_URL } from './config';
 
 const hideNavbarRoutes = ['/login', '/register', '/forgot-password'];
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
@@ -72,15 +73,40 @@ export default function App() {
 
   // Authentication & Inactivity Guard
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem('student_id') !== null;
+    const student_id = localStorage.getItem('student_id');
+    const token = localStorage.getItem('session_token');
+    const isAuthenticated = student_id !== null;
+    
     if (!isAuthenticated && !hideNavbarRoutes.includes(location.pathname)) {
       navigate('/login', { replace: true });
       return;
     }
+    
+    // Check Single Active Session
+    const checkSession = () => {
+      if (student_id && token && !hideNavbarRoutes.includes(location.pathname)) {
+        fetch(`${API_URL}/api/verify-session/?student_id=${student_id}&token=${token}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.valid === false || data.error) {
+               localStorage.removeItem('student_id');
+               localStorage.removeItem('name');
+               localStorage.removeItem('session_token');
+               alert("Your account was logged in from another device. For security, you have been logged out.");
+               navigate('/login', { replace: true });
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    checkSession();
+    const intervalId = setInterval(checkSession, 10000);
 
     // Only run activity tracker if authenticated
-    if (!isAuthenticated || hideNavbarRoutes.includes(location.pathname))
-      return;
+    if (!isAuthenticated || hideNavbarRoutes.includes(location.pathname)) {
+      return () => clearInterval(intervalId);
+    }
 
     let timeoutId: ReturnType<typeof setTimeout>;
 
@@ -110,6 +136,7 @@ export default function App() {
 
     return () => {
       clearTimeout(timeoutId);
+      clearInterval(intervalId);
       activityEvents.forEach((event) =>
         document.removeEventListener(event, handleActivity)
       );

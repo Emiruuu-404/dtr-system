@@ -10,6 +10,7 @@ from django.contrib.auth.hashers import make_password, check_password
 import io
 from datetime import datetime, time, timedelta
 import math
+import uuid
 from . import views
 
 from rest_framework.decorators import api_view
@@ -135,12 +136,16 @@ def login_view(request):
             # Migrate heavy password hashes to fast MD5 Hasher on successful login
             if not user.password.startswith("md5$"):
                 user.password = make_password(password)
-                user.save()
                 
+            new_token = str(uuid.uuid4())
+            user.session_token = new_token
+            user.save()
+            
             return JsonResponse({
                 "message": "Login successful",
                 "student_id": user.student_id,
-                "name": user.name
+                "name": user.name,
+                "session_token": new_token
             })
         else:
             print(f"Unauthorized: Password mismatch for user {user.student_id}")
@@ -148,6 +153,22 @@ def login_view(request):
     except Intern.DoesNotExist:
         print(f"Unauthorized: User not found for login ID {student_id}")
         return JsonResponse({"error": "Invalid credentials"}, status=401)
+
+@csrf_exempt
+def verify_session(request):
+    student_id = request.GET.get("student_id")
+    token = request.GET.get("token")
+    if not student_id or not token:
+        return JsonResponse({"valid": False, "error": "Missing parameters"}, status=400)
+        
+    try:
+        user = Intern.objects.get(student_id=student_id)
+        if user.session_token == token:
+            return JsonResponse({"valid": True})
+        else:
+            return JsonResponse({"valid": False, "error": "Logged in from another device"})
+    except Intern.DoesNotExist:
+        return JsonResponse({"valid": False, "error": "User does not exist"}, status=404)
 
 @csrf_exempt
 def time_in(request):
