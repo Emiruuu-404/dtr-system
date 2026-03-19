@@ -91,9 +91,12 @@ export default function App() {
   useEffect(() => {
     const student_id = localStorage.getItem('student_id');
     const token = localStorage.getItem('session_token');
-    const isAuthenticated = student_id !== null;
+    const isAuthenticated = student_id !== null && token !== null;
     
     if (!isAuthenticated && !hideNavbarRoutes.includes(location.pathname)) {
+      localStorage.removeItem('student_id');
+      localStorage.removeItem('name');
+      localStorage.removeItem('session_token');
       navigate('/login', { replace: true });
       return;
     }
