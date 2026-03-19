@@ -4,12 +4,10 @@ services:
     env: python
     plan: free
     rootDir: backend
-    buildCommand: ./build.sh
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --no-input && python manage.py migrate
     startCommand: gunicorn ojt_backend.wsgi:application
     autoDeploy: true
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.8
       - key: DEBUG
         value: 'False'
       - key: ALLOWED_HOSTS
