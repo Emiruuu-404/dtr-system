@@ -736,6 +736,7 @@ def download_dtr(request):
 
     day_type = request.GET.get("day_type", "Regular")
     supervisor = request.GET.get("supervisor", "").strip()
+    period = request.GET.get("period", "auto").strip()
 
     # Use current month and year
     now = timezone.localtime()
@@ -745,10 +746,19 @@ def download_dtr(request):
     month_name = calendar.month_name[month]
     
     # 15th/End of Month Cutoff Logic
-    if current_day <= 15:
+    if period == "1st_half":
         period_suffix = "1st_Half"
-    else:
+        is_first_half = True
+    elif period == "2nd_half":
         period_suffix = "2nd_Half"
+        is_first_half = False
+    else:
+        if current_day <= 15:
+            period_suffix = "1st_Half"
+            is_first_half = True
+        else:
+            period_suffix = "2nd_Half"
+            is_first_half = False
 
     month_str = f"{month_name} {year} ({period_suffix.replace('_', ' ')})"
 
@@ -822,7 +832,7 @@ def download_dtr(request):
         check_inline(11, "_________", "✓")
         check_inline(44, "_________", "✓")
 
-    if current_day <= 15:
+    if is_first_half:
         records = Attendance.objects.filter(
             student_id=student_id, 
             date__year=year, 

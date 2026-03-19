@@ -7,6 +7,7 @@ export default function Reports() {
   const [reportData, setReportData] = useState<any>(null);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [dayType, setDayType] = useState('Regular');
+  const [period, setPeriod] = useState('auto');
   const [supervisor, setSupervisor] = useState('');
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -94,7 +95,7 @@ export default function Reports() {
     setStatus('Generating DTR Document...');
 
     try {
-      const downloadUrl = `${API_URL}/api/download-dtr/?student_id=${student_id}&day_type=${encodeURIComponent(dayType)}&supervisor=${encodeURIComponent(supervisor)}`;
+      const downloadUrl = `${API_URL}/api/download-dtr/?student_id=${student_id}&day_type=${encodeURIComponent(dayType)}&supervisor=${encodeURIComponent(supervisor)}&period=${encodeURIComponent(period)}`;
       const response = await fetch(downloadUrl);
 
       if (!response.ok) {
@@ -379,8 +380,23 @@ export default function Reports() {
 
             <form
               onSubmit={triggerDownload}
-              className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-green-50 p-4 border-2 border-green-900"
+              className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end bg-green-50 p-4 border-2 border-green-900"
             >
+              <div className="md:col-span-1">
+                <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">
+                  Period
+                </label>
+                <select
+                  name="period"
+                  value={period}
+                  onChange={(e) => setPeriod(e.target.value)}
+                  className="w-full p-3 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-white uppercase text-xs"
+                >
+                  <option value="auto">Auto Select</option>
+                  <option value="1st_half">1st to 15th</option>
+                  <option value="2nd_half">16th to End</option>
+                </select>
+              </div>
               <div className="md:col-span-1">
                 <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">
                   Check Mark
