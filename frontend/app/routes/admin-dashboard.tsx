@@ -20,6 +20,11 @@ export default function AdminDashboard() {
     // For inline editing
     const [editingRecord, setEditingRecord] = useState<any>(null);
     const [editForm, setEditForm] = useState({ am_in: "", am_out: "", pm_in: "", pm_out: "" });
+    
+    // Admin Settings
+    const [showAdminPwModal, setShowAdminPwModal] = useState(false);
+    const [adminPwForm, setAdminPwForm] = useState({ current_password: "", new_password: "", confirm_password: "" });
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -64,6 +69,37 @@ export default function AdminDashboard() {
         localStorage.removeItem("admin_id");
         localStorage.removeItem("admin_name");
         navigate("/admin/login");
+    };
+
+    const handleAdminPwChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (adminPwForm.new_password !== adminPwForm.confirm_password) return alert("New passwords do not match");
+        if (adminPwForm.new_password.length < 8) return alert("New password must be at least 8 characters");
+        
+        setActionLoading(true);
+        const adminId = localStorage.getItem("admin_id") || "admin";
+        try {
+            const res = await fetch(`${API_URL}/api/change-password/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    student_id: adminId,
+                    current_password: adminPwForm.current_password,
+                    new_password: adminPwForm.new_password
+                })
+            });
+            const d = await res.json();
+            if (res.ok) {
+                alert("Admin password changed successfully.");
+                setShowAdminPwModal(false);
+                setAdminPwForm({ current_password: "", new_password: "", confirm_password: "" });
+            } else {
+                alert(d.error || "Failed to change admin password");
+            }
+        } catch (err) {
+            alert("An error occurred");
+        }
+        setActionLoading(false);
     };
 
     const handleExportCSV = async () => {
@@ -204,12 +240,20 @@ export default function AdminDashboard() {
                     </h1>
                     <p className="text-green-800 font-bold">Real-time attendance monitoring and intern progress</p>
                 </div>
-                <button 
-                    onClick={handleLogout}
-                    className="bg-rose-100 text-rose-800 border-2 border-rose-900 px-4 py-2 text-xs font-black uppercase tracking-widest hover:bg-rose-200 transition-colors"
-                >
-                    Logout Admin
-                </button>
+                <div className="flex gap-3 mt-1 object-right">
+                    <button 
+                        onClick={() => setShowAdminPwModal(true)}
+                        className="bg-white border-2 border-green-900 px-4 py-2 text-xs font-black uppercase text-green-900 tracking-widest hover:bg-green-50 transition-colors"
+                    >
+                        Settings
+                    </button>
+                    <button 
+                        onClick={handleLogout}
+                        className="bg-rose-100 text-rose-800 border-2 border-rose-900 px-4 py-2 text-xs font-black uppercase tracking-widest hover:bg-rose-200 transition-colors"
+                    >
+                        Logout Admin
+                    </button>
+                </div>
             </header>
 
             {/* Stats Cards */}
@@ -613,6 +657,73 @@ export default function AdminDashboard() {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* ADMIN SETTINGS MODAL */}
+            {showAdminPwModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <form onSubmit={handleAdminPwChange} className="bg-white border-4 border-green-900 shadow-[8px_8px_0px_0px_rgba(20,83,45,1)] p-6 max-w-sm w-full relative">
+                        <h3 className="text-2xl font-black text-green-900 uppercase tracking-widest mb-6 border-b-2 border-gray-200 pb-2">
+                            Admin Settings
+                        </h3>
+
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Current Password</label>
+                                <input 
+                                    type="password" 
+                                    value={adminPwForm.current_password} 
+                                    onChange={e => setAdminPwForm({...adminPwForm, current_password: e.target.value})} 
+                                    className="w-full border-2 border-gray-400 p-2 font-bold focus:border-green-900 focus:outline-none"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">New Password (Min 8 chars)</label>
+                                <input 
+                                    type="password" 
+                                    value={adminPwForm.new_password} 
+                                    onChange={e => setAdminPwForm({...adminPwForm, new_password: e.target.value})} 
+                                    className="w-full border-2 border-gray-400 p-2 font-bold focus:border-green-900 focus:outline-none"
+                                    required
+                                    minLength={8}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Confirm New Password</label>
+                                <input 
+                                    type="password" 
+                                    value={adminPwForm.confirm_password} 
+                                    onChange={e => setAdminPwForm({...adminPwForm, confirm_password: e.target.value})} 
+                                    className="w-full border-2 border-gray-400 p-2 font-bold focus:border-green-900 focus:outline-none"
+                                    required
+                                    minLength={8}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button 
+                                type="submit"
+                                disabled={actionLoading}
+                                className="flex-1 font-black px-4 py-3 uppercase text-xs tracking-widest border-2 bg-green-900 text-white border-green-900 hover:bg-green-800 disabled:opacity-50"
+                            >
+                                Save Password
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setShowAdminPwModal(false);
+                                    setAdminPwForm({ current_password: "", new_password: "", confirm_password: "" });
+                                }}
+                                disabled={actionLoading}
+                                className="bg-white border-2 border-gray-400 font-black px-4 py-3 hover:bg-gray-100 uppercase text-gray-700 tracking-widest text-xs disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
         </div>

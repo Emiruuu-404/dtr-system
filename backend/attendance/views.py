@@ -1170,6 +1170,18 @@ def admin_login_view(request):
     if not student_id or not password:
         return Response({"error": "Missing fields"}, status=400)
 
+    # Automatically create the default admin if it doesn't exist
+    if student_id == "admin":
+        if not Intern.objects.filter(student_id="admin").exists():
+            admin_user = Intern.objects.create_user(
+                student_id="admin",
+                email="admin@dtr.com",
+                name="System Administrator",
+                password="admin"
+            )
+            admin_user.is_staff = True
+            admin_user.save()
+
     try:
         if "@" in student_id:
             user_obj = Intern.objects.get(email=student_id)
