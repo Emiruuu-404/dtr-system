@@ -348,6 +348,9 @@ def get_status(request):
             {"in": "--:--", "out": "--:--", "in_label": "PM IN", "out_label": "PM OUT"}
         ]
 
+    has_saturday = any(r.date.weekday() == 5 for r in all_records)
+    has_sunday = any(r.date.weekday() == 6 for r in all_records)
+
     # ===== ESTIMATED END DATE =====
     total_required = 486
     remaining_hours = max(total_required - total_hours, 0)
@@ -360,7 +363,8 @@ def get_status(request):
         added_days = 0
         while added_days < remaining_days:
             est += timedelta(days=1)
-            if est.weekday() < 5:
+            # Add day if it's a weekday, or if it's a weekend and the intern has a history of working on that day
+            if est.weekday() < 5 or (est.weekday() == 5 and has_saturday) or (est.weekday() == 6 and has_sunday):
                 added_days += 1
         est_date_str = est.strftime("%b %d, %Y")
 
@@ -729,9 +733,18 @@ def download_dtr(request):
     import os
     from django.conf import settings
 
-    # SECURED: Fetch ID from token instead of URL params
+    # SECURED: Fetch ID from token instead of URL params, but allow admins to override
     student_id = request.user.student_id  
     user = request.user
+
+    # Allow admins to download for specific students
+    if getattr(user, 'is_staff', False) and request.GET.get('admin_student_id'):
+        try:
+            target_id = request.GET.get('admin_student_id')
+            user = Intern.objects.get(student_id=target_id)
+            student_id = target_id
+        except Intern.DoesNotExist:
+            pass
 
     day_type = request.GET.get("day_type", "Regular")
     supervisor = request.GET.get("supervisor", "").strip()
@@ -1146,3 +1159,204 @@ def add_past_record(request):
         return Response({"message": "Record added successfully"})
     except Exception as e:
         return Response({"error": str(e)}, status=400)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_login_view(request):
+    data = request.data
+    student_id = data.get("studentId") or data.get("student_id")
+    password = data.get("password")
+
+    if not student_id or not password:
+        return Response({"error": "Missing fields"}, status=400)
+
+    try:
+        if "@" in student_id:
+            user_obj = Intern.objects.get(email=student_id)
+            actual_id = user_obj.student_id
+        else:
+            actual_id = student_id
+    except Intern.DoesNotExist:
+        return Response({"error": "Invalid admin credentials"}, status=401)
+
+    user = authenticate(request, student_id=actual_id, password=password)
+    
+    if user is not None:
+        if not user.is_staff:
+            return Response({"error": "Not authorized as admin"}, status=403)
+        
+        token = RefreshToken.for_user(user)
+        return Response({
+            "message": "Admin login successful",
+            "admin_id": user.student_id,
+            "name": user.name,
+            "admin_token": str(token.access_token)
+        })
+    else:
+        return Response({"error": "Invalid admin credentials"}, status=401)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_admin_dashboard(request):
+    try:
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        auth = JWTAuthentication()
+        
+        # Parse token from headers
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return Response({"error": "Missing or invalid Authorization header"}, status=401)
+            
+        token_str = auth_header.split(' ')[1]
+        validated_token = auth.get_validated_token(token_str)
+        user = auth.get_user(validated_token)
+        
+        if not user or not user.is_staff:
+            print(f"Auth reject! User: {user}, Is_staff: {getattr(user, 'is_staff', None)}, Token was: {token_str[:15]}...")
+            return Response({"error": "Unauthorized: Not an admin"}, status=403)
+            
+    except Exception as e:
+        print("Admin Auth Error:", e)
+        return Response({"error": "Authentication failed", "details": str(e)}, status=401)
+
+    interns = Intern.objects.filter(is_staff=False)
+    today = timezone.localtime().date()
+    
+    total_interns = interns.count()
+    present_today = Attendance.objects.filter(date=today, am_time_in__isnull=False, student_id__in=interns.values('student_id')).values('student_id').distinct().count()
+    
+    intern_list = []
+    
+    for intern in interns:
+        records = Attendance.objects.filter(student_id=intern.student_id)
+        total_hours = 0
+        for r in records:
+            total_hours += get_effective_hours(r.am_time_in, r.am_time_out)
+            total_hours += get_effective_hours(r.pm_time_in, r.pm_time_out)
+        total_hours = round(total_hours, 2)
+        
+        # Determine status today
+        today_record = records.filter(date=today).first()
+        status_today = "Not Timed In"
+        if today_record:
+            if today_record.am_time_in and not today_record.am_time_out:
+                status_today = "AM IN"
+            elif today_record.am_time_out and not today_record.pm_time_in:
+                status_today = "AM OUT"
+            elif today_record.pm_time_in and not today_record.pm_time_out:
+                status_today = "PM IN"
+            elif today_record.pm_time_out:
+                status_today = "PM OUT"
+        
+        intern_list.append({
+            "student_id": intern.student_id,
+            "name": intern.name,
+            "course": getattr(intern, 'course', 'N/A'),
+            "total_hours": total_hours,
+            "status_today": status_today,
+            "is_active": intern.is_active
+        })
+        
+    return Response({
+        "stats": {
+            "total_interns": total_interns,
+            "present_today": present_today,
+            "absent_today": total_interns - present_today,
+        },
+        "interns": intern_list
+    })
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def admin_intern_actions(request):
+    try:
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        auth = JWTAuthentication()
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return Response({"error": "Unauthorized"}, status=401)
+        token_str = auth_header.split(' ')[1]
+        validated_token = auth.get_validated_token(token_str)
+        user = auth.get_user(validated_token)
+        if not user or not user.is_staff:
+            return Response({"error": "Unauthorized: Not an admin"}, status=403)
+    except Exception:
+        return Response({"error": "Authentication failed"}, status=401)
+
+    action = request.data.get('action')
+    target_id = request.data.get('student_id')
+    
+    if not action or not target_id:
+        return Response({"error": "Missing action or student_id"}, status=400)
+        
+    try:
+        intern = Intern.objects.get(student_id=target_id)
+        if intern.is_staff:
+             return Response({"error": "Cannot modify other admins"}, status=400)
+             
+        if action == "reset_password":
+            new_pass = request.data.get("new_password")
+            if not new_pass or len(new_pass) < 6:
+                return Response({"error": "Password must be at least 6 characters"}, status=400)
+            intern.set_password(new_pass)
+            intern.save()
+            return Response({"message": f"Password reset successfully for {intern.name}"})
+            
+        elif action == "toggle_active":
+            intern.is_active = not intern.is_active
+            intern.save()
+            status = "Activated" if intern.is_active else "Deactivated"
+            return Response({"message": f"Intern {intern.name} {status} successfully", "is_active": intern.is_active})
+            
+        elif action == "delete_intern":
+            name = intern.name
+            intern.delete()
+            return Response({"message": f"Intern {name} deleted completely."})
+            
+        else:
+            return Response({"error": "Invalid action"}, status=400)
+            
+    except Intern.DoesNotExist:
+        return Response({"error": "Intern not found"}, status=404)
+
+import csv
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def admin_export_csv(request):
+    try:
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+        auth = JWTAuthentication()
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return Response({"error": "Unauthorized"}, status=401)
+        token_str = auth_header.split(' ')[1]
+        validated_token = auth.get_validated_token(token_str)
+        user = auth.get_user(validated_token)
+        if not user or not user.is_staff:
+            return Response({"error": "Unauthorized: Not an admin"}, status=403)
+    except Exception:
+        return Response({"error": "Authentication failed"}, status=401)
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="intern_master_roster.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Student ID', 'Name', 'Email', 'Active Status', 'Total Hours', 'Remaining Hours (of 486)'])
+
+    interns = Intern.objects.filter(is_staff=False)
+    for intern in interns:
+        records = Attendance.objects.filter(student_id=intern.student_id)
+        total_hours = sum(get_effective_hours(r.am_time_in, r.am_time_out) + get_effective_hours(r.pm_time_in, r.pm_time_out) for r in records)
+        total_hours = round(total_hours, 2)
+        remaining = max(486 - total_hours, 0)
+        
+        writer.writerow([
+            intern.student_id,
+            intern.name,
+            intern.email,
+            "Active" if intern.is_active else "Deactivated",
+            total_hours,
+            round(remaining, 2)
+        ])
+
+    return response

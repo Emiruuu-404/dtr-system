@@ -38,6 +38,14 @@ export default [
         file: "./routes/settings.tsx",
     },
     {
+        path: "/admin",
+        file: "./routes/admin-dashboard.tsx",
+    },
+    {
+        path: "/admin/login",
+        file: "./routes/admin-login.tsx",
+    },
+    {
         path: "*",
         file: "./routes/catchall.tsx",
     },

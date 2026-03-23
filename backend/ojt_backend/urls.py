@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from attendance.views import register, login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report, get_report_image, upload_dtr, verify_session
+from attendance.views import register, login_view, admin_login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report, get_report_image, upload_dtr, verify_session, get_admin_dashboard, admin_intern_actions, admin_export_csv
 
 def home(request):
     return redirect('/login/')
@@ -16,6 +16,7 @@ urlpatterns =[
     path('', home),
     path('admin/', admin.site.urls),
     path('api/login/', login_view),
+    path('api/admin-login/', admin_login_view),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/register/', register),
     path('api/time-in/', time_in),
@@ -26,6 +27,9 @@ urlpatterns =[
     path('api/delete-record/', delete_record),
     path('api/edit-record/', edit_record),
     path('api/leaderboards/', get_leaderboards),
+    path('api/admin-dashboard/', get_admin_dashboard),
+    path('api/admin-actions/', admin_intern_actions),
+    path('api/admin-export/', admin_export_csv),
     path('api/save-today-record/', save_today_record),
     path('api/download-dtr/', download_dtr),
     path('api/forgot-password/', forgot_password),

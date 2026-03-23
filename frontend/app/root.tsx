@@ -51,7 +51,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import { API_URL } from './config';
 
-const hideNavbarRoutes = ['/login', '/register', '/forgot-password'];
+const hideNavbarRoutes = ['/login', '/register', '/forgot-password', '/admin/login', '/admin'];
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
 
 if (typeof window !== 'undefined' && !(window as any).__fetch_patched) {
@@ -63,7 +63,9 @@ if (typeof window !== 'undefined' && !(window as any).__fetch_patched) {
     if (token && typeof resource === 'string' && resource.includes(API_URL)) {
       config = config || {};
       const headers = new Headers(config.headers);
-      headers.set('Authorization', `Bearer ${token}`);
+      if (!headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
       config.headers = headers;
     }
     return originalFetch(resource, config);

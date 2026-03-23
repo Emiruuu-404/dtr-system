@@ -75,7 +75,7 @@ export default function Dashboard() {
                         <div className="bg-green-50 border-2 border-green-900 p-3 mt-1">
                             <p className="text-[10px] font-black text-green-800 uppercase tracking-widest mb-1">Estimated End Date</p>
                             <p className="text-green-900 font-bold text-sm tracking-wide">{statusData.est_end_date}</p>
-                            <p className="text-[9px] font-bold text-green-700 uppercase tracking-widest mt-1 opacity-80">*Excludes weekends (Sat & Sun)</p>
+                            <p className="text-[9px] font-bold text-green-700 uppercase tracking-widest mt-1 opacity-80">*Includes weekends based on attendance</p>
                         </div>
                     )}
                 </div>

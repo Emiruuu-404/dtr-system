@@ -17,6 +17,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const isAdminLogggedIn = Boolean(localStorage.getItem('admin_token'));
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +57,7 @@ export default function Register() {
 
         if (data.message) {
           setTimeout(() => {
-            navigate('/login');
+            navigate(isAdminLogggedIn ? '/admin' : '/login');
           }, 1500);
         }
       })
@@ -67,11 +68,11 @@ export default function Register() {
 
   return (
     <div className="min-h-[100dvh] bg-green-50 bg-[radial-gradient(#dcfce7_1px,transparent_1px)] [background-size:16px_16px] py-10 px-6 overflow-y-auto">
-      <div className="w-full max-w-md mx-auto">
+      <div className="w-full max-w-2xl mx-auto">
         <header className="mb-8 text-center flex items-center justify-center gap-3">
           <BadgeCheck size={32} strokeWidth={3} className="text-green-900" />
           <h1 className="text-3xl font-black text-green-900 uppercase tracking-tighter">
-            Intern Registration
+            {isAdminLogggedIn ? "Register New Intern" : "Intern Registration"}
           </h1>
         </header>
 
@@ -91,8 +92,8 @@ export default function Register() {
             Personal Details
           </h2>
 
-          <div className="space-y-4 mb-8">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div className="md:col-span-2">
               <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">
                 Full Name
               </label>
@@ -217,14 +218,12 @@ export default function Register() {
           </button>
         </form>
 
-        <div className="text-center font-bold text-sm text-gray-600 bg-white p-4 border-2 border-green-900">
-          <span className="uppercase tracking-widest">Already registered?</span>{' '}
-          <br className="sm:hidden" />
+        <div className="text-center font-bold text-sm text-gray-600 bg-white p-4 border-2 border-green-900 flex items-center justify-center">
           <Link
-            to="/login"
-            className="text-green-700 hover:text-green-900 uppercase tracking-widest underline decoration-2 underline-offset-4 mt-2 inline-block"
+            to={isAdminLogggedIn ? "/admin" : "/login"}
+            className="text-green-700 hover:text-green-900 uppercase tracking-widest underline decoration-2 underline-offset-4 inline-block"
           >
-            Return to Log In
+            {isAdminLogggedIn ? "Return to Dashboard" : "Return to Log In"}
           </Link>
         </div>
       </div>
