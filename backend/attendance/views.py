@@ -243,7 +243,7 @@ def time_out(request):
 
 
 def get_leaderboards(request):
-    interns = Intern.objects.all()
+    interns = Intern.objects.filter(is_staff=False)
     
     leaderboard_data = []
     for intern in interns:
