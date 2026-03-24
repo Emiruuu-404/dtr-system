@@ -760,17 +760,14 @@ def download_dtr(request):
     # 15th/End of Month Cutoff Logic
     if period == "1st_half":
         period_suffix = "1st_Half"
-        is_first_half = True
     elif period == "2nd_half":
         period_suffix = "2nd_Half"
-        is_first_half = False
+    elif period == "full":
+        period_suffix = "Full_Month"
     else:
-        if current_day <= 15:
-            period_suffix = "1st_Half"
-            is_first_half = True
-        else:
-            period_suffix = "2nd_Half"
-            is_first_half = False
+        # Fallback to full if invalid
+        period = "full"
+        period_suffix = "Full_Month"
 
     month_str = f"{month_name} {year} ({period_suffix.replace('_', ' ')})"
 
@@ -778,23 +775,29 @@ def download_dtr(request):
     from attendance.pdf_generator import generate_dtr_pdf
     
     # Query Database
-    if is_first_half:
+    if period == "1st_half":
         records = Attendance.objects.filter(
             student_id=student_id, 
             date__year=year, 
             date__month=month,
             date__day__lte=15
         ).order_by('date')
-    else:
+    elif period == "2nd_half":
         records = Attendance.objects.filter(
             student_id=student_id, 
             date__year=year, 
             date__month=month,
             date__day__gte=16
         ).order_by('date')
+    else:  # full
+        records = Attendance.objects.filter(
+            student_id=student_id, 
+            date__year=year, 
+            date__month=month
+        ).order_by('date')
 
     # Create PDF Buffer using new pure-python lab module
-    buffer = generate_dtr_pdf(records, user, month_str, day_type, supervisor, is_first_half)
+    buffer = generate_dtr_pdf(records, user, month_str, day_type, supervisor, period)
     
     # File Response
     filename = f"DTR_{user.name.replace(' ', '_')}_{month_name}_{year}_{period_suffix}.pdf"

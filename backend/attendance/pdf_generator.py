@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.conf import settings
 
 
-def generate_dtr_pdf(records, user, month_str, day_type, supervisor, is_first_half):
+def generate_dtr_pdf(records, user, month_str, day_type, supervisor, period="full"):
     """
     Generate a DTR PDF by overlaying attendance data onto the official
     DTR_Template.pdf (Civil Service Form No. 48).
@@ -29,15 +29,15 @@ def generate_dtr_pdf(records, user, month_str, day_type, supervisor, is_first_ha
         if day not in shifts_by_day:
             shifts_by_day[day] = r
 
-    start_day = 1 if is_first_half else 16
-    end_day = 15 if is_first_half else 31
-    
-    # --- Calculate total hours ---
-    total_hours = 0
-    for r in records:
-        total_hours += _get_effective_hours(r.am_time_in, r.am_time_out)
-        total_hours += _get_effective_hours(r.pm_time_in, r.pm_time_out)
-    total_hours = round(total_hours, 2)
+    if period == "1st_half":
+        start_day = 1
+        end_day = 15
+    elif period == "2nd_half":
+        start_day = 16
+        end_day = 31
+    else:  # full
+        start_day = 1
+        end_day = 31
     
     # --- PDF page dimensions (A4 in points) ---
     page_width = 595.303937
@@ -84,27 +84,23 @@ def generate_dtr_pdf(records, user, month_str, day_type, supervisor, is_first_ha
     left_total_x = (210.70 + 285.80) / 2   # ~248.25 center of undertime area
     right_total_x = (490.40 + 565.40) / 2  # ~527.90 center of undertime area
     
-    # Name field (on the underline after "NAME:")
-    name_y_pdf = 97.7
-    # Underline spans: left x0=72.46 to x1=277.46, right x0=352.11 to x1=557.11
-    name_center_left = (72.46 + 277.46) / 2   # ~174.96
-    name_center_right = (352.11 + 557.11) / 2  # ~454.61
+    # Base Y coordinates based on the bottom of the bounding boxes (baseline) instead of top
+    name_y_pdf = 101.5
+    name_x_left = 75.0
+    name_x_right = 355.0
     
     # Month field (on the underline after "For the month of")
-    month_y_pdf = 111.6
-    # Underline spans: left x0=111.05 to x1=276.05, right x0=390.70 to x1=555.70
-    month_center_left = (111.05 + 276.05) / 2   # ~193.55
-    month_center_right = (390.70 + 555.70) / 2  # ~473.20
+    month_y_pdf = 115.5
+    month_x_left = 113.0
+    month_x_right = 393.0
     
     # Regular days checkmark position (on the underline after "days")
-    # Left: underline x0=242.90 x1=272.90, top=130.01
-    regular_check_y_pdf = 130.01
+    regular_check_y_pdf = 138.0
     regular_check_x_left = (242.90 + 272.90) / 2   # ~257.90
     regular_check_x_right = (522.55 + 552.55) / 2  # ~537.55
     
     # Saturdays checkmark position (on the underline after "Saturdays")
-    # Left: underline x0=229.87 x1=274.87, top=141.56
-    saturday_check_y_pdf = 141.56
+    saturday_check_y_pdf = 149.0
     saturday_check_x_left = (229.87 + 274.87) / 2   # ~252.37
     saturday_check_x_right = (509.52 + 554.52) / 2  # ~532.02
     
@@ -136,31 +132,36 @@ def generate_dtr_pdf(records, user, month_str, day_type, supervisor, is_first_ha
         # Adjust for vertical centering: shift down by half of font ascent
         c.drawString(x_center - text_width / 2, rl_y - c._fontsize * 0.35, text)
     
-    # --- Draw Name (centered on underline, on both copies) ---
+    # --- Draw Name (Left-aligned near label, on both copies) ---
     name_text = user.name.upper()
     c.setFont("Helvetica-Bold", 9)
     name_rl_y = to_rl_y(name_y_pdf)
-    draw_centered(name_center_left, name_rl_y, name_text)
-    draw_centered(name_center_right, name_rl_y, name_text)
+    c.drawString(name_x_left, name_rl_y, name_text)
+    c.drawString(name_x_right, name_rl_y, name_text)
     
-    # --- Draw Month (centered on underline, on both copies) ---
+    # --- Draw Month (Left-aligned near label, on both copies) ---
     c.setFont("Helvetica-Bold", 8)
     month_rl_y = to_rl_y(month_y_pdf)
-    draw_centered(month_center_left, month_rl_y, month_str.upper())
-    draw_centered(month_center_right, month_rl_y, month_str.upper())
+    c.drawString(month_x_left, month_rl_y, month_str.upper())
+    c.drawString(month_x_right, month_rl_y, month_str.upper())
     
+    # --- Helper to draw a manual checkmark (so it never renders as a black box) ---
+    def draw_manual_checkmark(x, y):
+        c.saveState()
+        c.setLineWidth(1.2)
+        c.line(x - 3, y + 2, x, y - 1)
+        c.line(x, y - 1, x + 5, y + 6)
+        c.restoreState()
+
     # --- Draw Checkmark on Regular days or Saturdays ---
-    # Use ZapfDingbats font: char '4' = ✓ checkmark
-    c.setFont("ZapfDingbats", 10)
-    checkmark = "4"  # ZapfDingbats '4' = ✓
     if day_type == "Regular":
         check_rl_y = to_rl_y(regular_check_y_pdf)
-        draw_centered(regular_check_x_left, check_rl_y, checkmark)
-        draw_centered(regular_check_x_right, check_rl_y, checkmark)
+        draw_manual_checkmark(regular_check_x_left, check_rl_y + 2)
+        draw_manual_checkmark(regular_check_x_right, check_rl_y + 2)
     elif day_type == "Saturdays":
         check_rl_y = to_rl_y(saturday_check_y_pdf)
-        draw_centered(saturday_check_x_left, check_rl_y, checkmark)
-        draw_centered(saturday_check_x_right, check_rl_y, checkmark)
+        draw_manual_checkmark(saturday_check_x_left, check_rl_y + 2)
+        draw_manual_checkmark(saturday_check_x_right, check_rl_y + 2)
     
     # --- Draw Attendance Data ---
     c.setFont("Helvetica", TIME_FONT_SIZE)
@@ -198,14 +199,6 @@ def generate_dtr_pdf(records, user, month_str, day_type, supervisor, is_first_ha
                 draw_centered(right_cols['pm_in'], row_rl_y, pm_in)
             if pm_out:
                 draw_centered(right_cols['pm_out'], row_rl_y, pm_out)
-    
-    # --- Draw Total Hours ---
-    total_text = _format_hrs_mins(total_hours)
-    total_rl_y = to_rl_y(total_row_center_pdf)
-    c.setFont("Helvetica-Bold", 7)
-    draw_centered(left_total_x, total_rl_y, total_text)
-    draw_centered(right_total_x, total_rl_y, total_text)
-    
     # --- Draw Supervisor Name ---
     if supervisor:
         sup_text = supervisor.upper()

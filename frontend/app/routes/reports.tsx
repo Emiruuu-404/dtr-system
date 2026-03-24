@@ -7,7 +7,7 @@ export default function Reports() {
   const [reportData, setReportData] = useState<any>(null);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [dayType, setDayType] = useState('Regular');
-  const [period, setPeriod] = useState('auto');
+  const [period, setPeriod] = useState('full');
   const [supervisor, setSupervisor] = useState('');
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -392,7 +392,7 @@ export default function Reports() {
                   onChange={(e) => setPeriod(e.target.value)}
                   className="w-full p-3 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-white uppercase text-xs"
                 >
-                  <option value="auto">Auto Select</option>
+                  <option value="full">Full DTR</option>
                   <option value="1st_half">1st to 15th</option>
                   <option value="2nd_half">16th to End</option>
                 </select>
