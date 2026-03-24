@@ -86,13 +86,27 @@ def generate_dtr_pdf(records, user, month_str, day_type, supervisor, is_first_ha
     
     # Name field (on the underline after "NAME:")
     name_y_pdf = 97.7
-    name_x_left = 73.0
-    name_x_right = 352.5
+    # Underline spans: left x0=72.46 to x1=277.46, right x0=352.11 to x1=557.11
+    name_center_left = (72.46 + 277.46) / 2   # ~174.96
+    name_center_right = (352.11 + 557.11) / 2  # ~454.61
     
     # Month field (on the underline after "For the month of")
     month_y_pdf = 111.6
-    month_x_left = 112.0
-    month_x_right = 391.5
+    # Underline spans: left x0=111.05 to x1=276.05, right x0=390.70 to x1=555.70
+    month_center_left = (111.05 + 276.05) / 2   # ~193.55
+    month_center_right = (390.70 + 555.70) / 2  # ~473.20
+    
+    # Regular days checkmark position (on the underline after "days")
+    # Left: underline x0=242.90 x1=272.90, top=130.01
+    regular_check_y_pdf = 130.01
+    regular_check_x_left = (242.90 + 272.90) / 2   # ~257.90
+    regular_check_x_right = (522.55 + 552.55) / 2  # ~537.55
+    
+    # Saturdays checkmark position (on the underline after "Saturdays")
+    # Left: underline x0=229.87 x1=274.87, top=141.56
+    saturday_check_y_pdf = 141.56
+    saturday_check_x_left = (229.87 + 274.87) / 2   # ~252.37
+    saturday_check_x_right = (509.52 + 554.52) / 2  # ~532.02
     
     # Supervisor name position (on the line above "In-Charge")
     supervisor_y_pdf = 740.0
@@ -122,18 +136,31 @@ def generate_dtr_pdf(records, user, month_str, day_type, supervisor, is_first_ha
         # Adjust for vertical centering: shift down by half of font ascent
         c.drawString(x_center - text_width / 2, rl_y - c._fontsize * 0.35, text)
     
-    # --- Draw Name (on both copies) ---
+    # --- Draw Name (centered on underline, on both copies) ---
     name_text = user.name.upper()
     c.setFont("Helvetica-Bold", 9)
     name_rl_y = to_rl_y(name_y_pdf)
-    c.drawString(name_x_left, name_rl_y - 3, name_text)
-    c.drawString(name_x_right, name_rl_y - 3, name_text)
+    draw_centered(name_center_left, name_rl_y, name_text)
+    draw_centered(name_center_right, name_rl_y, name_text)
     
-    # --- Draw Month (on both copies) ---
+    # --- Draw Month (centered on underline, on both copies) ---
     c.setFont("Helvetica-Bold", 8)
     month_rl_y = to_rl_y(month_y_pdf)
-    c.drawString(month_x_left, month_rl_y - 3, month_str.upper())
-    c.drawString(month_x_right, month_rl_y - 3, month_str.upper())
+    draw_centered(month_center_left, month_rl_y, month_str.upper())
+    draw_centered(month_center_right, month_rl_y, month_str.upper())
+    
+    # --- Draw Checkmark on Regular days or Saturdays ---
+    # Use ZapfDingbats font: char '4' = ✓ checkmark
+    c.setFont("ZapfDingbats", 10)
+    checkmark = "4"  # ZapfDingbats '4' = ✓
+    if day_type == "Regular":
+        check_rl_y = to_rl_y(regular_check_y_pdf)
+        draw_centered(regular_check_x_left, check_rl_y, checkmark)
+        draw_centered(regular_check_x_right, check_rl_y, checkmark)
+    elif day_type == "Saturdays":
+        check_rl_y = to_rl_y(saturday_check_y_pdf)
+        draw_centered(saturday_check_x_left, check_rl_y, checkmark)
+        draw_centered(saturday_check_x_right, check_rl_y, checkmark)
     
     # --- Draw Attendance Data ---
     c.setFont("Helvetica", TIME_FONT_SIZE)
