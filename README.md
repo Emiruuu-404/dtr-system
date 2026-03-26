@@ -32,6 +32,16 @@ A full-stack **Daily Time Record (DTR)** and attendance tracking system built fo
 - Touch-optimized UI with skeleton loading states
 - Guided app tour for first-time users (React Joyride)
 
+### 🎨 UI Design — Flat Design 2.0 / Modern Minimalist
+The interface follows a **Flat Design 2.0** aesthetic — clean, minimal, and functional with subtle visual cues for usability:
+
+- **Card-based layouts** with bordered containers for content grouping
+- **Strong typography** — bold uppercase labels and headings (Swiss/International style)
+- **Green & white corporate palette** — dark green (`#14532D`) accents on a clean white background
+- **Bottom tab navigation** — mobile-native pattern inspired by Material Design
+- **Skeleton loading states** — smooth content placeholders during data fetches
+- **No heavy shadows** — relies on borders and background fills for depth instead of elevation
+
 ---
 
 ## 🛠️ Tech Stack
