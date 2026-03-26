@@ -201,9 +201,11 @@ export default function History() {
       return;
     }
 
-    fetch(`${API_URL}/api/history/?student_id=${student_id}`)
-      .then((res) => res.json())
-      .then((data) => {
+    Promise.all([
+      fetch(`${API_URL}/api/history/?student_id=${student_id}`).then(res => res.json()),
+      new Promise(resolve => setTimeout(resolve, 800))
+    ])
+      .then(([data]) => {
         if (data.records) {
           setRecords(data.records);
         }
@@ -310,8 +312,37 @@ export default function History() {
         )}
 
         {loading ? (
-          <div className="flex justify-center p-10">
-            <Loader2 className="animate-spin text-green-900" size={32} />
+          <div className="space-y-6">
+            <div className="animate-pulse bg-green-900 h-8 w-32 border-2 border-green-900 mb-3 block shadow-[2px_2px_0px_0px_rgba(34,197,94,1)]"></div>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white border-2 border-green-900 relative">
+                  <div className="flex justify-between items-stretch border-b-2 border-green-900 bg-green-100 h-11">
+                    <div className="flex items-center px-4 w-1/2">
+                      <div className="h-4 bg-green-200 animate-pulse w-3/4 rounded-sm"></div>
+                    </div>
+                    <div className="w-1/3 border-l-2 border-green-900 bg-green-200 flex items-center px-4">
+                      <div className="h-4 bg-green-300 animate-pulse w-full rounded-sm"></div>
+                    </div>
+                  </div>
+                  <div className="flex items-stretch justify-between h-[72px] bg-white">
+                    <div className="flex flex-col justify-center p-4 flex-1">
+                      <div className="h-3 w-16 bg-gray-200 animate-pulse mb-2"></div>
+                      <div className="h-6 w-24 bg-gray-200 animate-pulse"></div>
+                    </div>
+                    <div className="w-[2px] bg-green-900"></div>
+                    <div className="flex flex-col justify-center p-4 flex-1 items-end text-right">
+                      <div className="h-3 w-16 bg-gray-200 animate-pulse mb-2"></div>
+                      <div className="h-6 w-24 bg-gray-200 animate-pulse"></div>
+                    </div>
+                  </div>
+                  <div className="bg-green-50 px-4 h-11 border-t-2 border-green-900 flex justify-between items-center">
+                    <div className="h-3 w-20 bg-green-200 animate-pulse"></div>
+                    <div className="h-5 w-16 bg-green-200 animate-pulse"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : filteredRecords.length === 0 ? (
           <div className="bg-white border-2 border-green-900 p-8 text-center">

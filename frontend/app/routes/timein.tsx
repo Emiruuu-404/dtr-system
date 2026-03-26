@@ -12,8 +12,15 @@ export default function TimeIn() {
     const [editingReportId, setEditingReportId] = useState<number | null>(null);
     const [editingNotes, setEditingNotes] = useState("");
     const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+    const [pageLoading, setPageLoading] = useState(true);
 
     const student_id = typeof window !== 'undefined' ? localStorage.getItem("student_id") : null;
+
+    useEffect(() => {
+        // Consistent skeleton display duration on refresh
+        const timer = setTimeout(() => setPageLoading(false), 800);
+        return () => clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         if (activeTab === 'history') {
@@ -24,9 +31,11 @@ export default function TimeIn() {
     const fetchHistory = () => {
         if (!student_id) return;
         setFetchingHistory(true);
-        fetch(`${API_URL}/api/reports/?student_id=${student_id}`)
-            .then(res => res.json())
-            .then(data => {
+        Promise.all([
+            fetch(`${API_URL}/api/reports/?student_id=${student_id}`).then(res => res.json()),
+            new Promise(resolve => setTimeout(resolve, 800))
+        ])
+            .then(([data]) => {
                 if (data.reports) {
                     setHistory(data.reports);
                 }
@@ -203,7 +212,21 @@ export default function TimeIn() {
                 </div>
             )}
 
-            {activeTab === 'submit' ? (
+            {pageLoading ? (
+                <div className="bg-white p-6 border-2 border-green-900 relative shadow-[4px_4px_0px_0px_rgba(20,83,45,1)] mb-6">
+                    <div className="space-y-6">
+                        <div>
+                            <div className="h-3 w-48 bg-gray-200 animate-pulse mb-3"></div>
+                            <div className="w-full h-32 border-2 border-green-100 bg-gray-100 animate-pulse"></div>
+                        </div>
+                        <div>
+                            <div className="h-3 w-40 bg-gray-200 animate-pulse mb-3 mt-4"></div>
+                            <div className="w-full h-[124px] bg-gray-100 animate-pulse border-2 border-green-100"></div>
+                        </div>
+                        <div className="w-full h-[56px] bg-gray-200 animate-pulse border-2 border-green-100"></div>
+                    </div>
+                </div>
+            ) : activeTab === 'submit' ? (
                 <form 
                     onSubmit={handleSubmit} 
                     className="bg-white p-6 border-2 border-green-900 relative mb-6 transition-all"
@@ -281,8 +304,29 @@ export default function TimeIn() {
             ) : (
                 <div className="space-y-4">
                     {fetchingHistory ? (
-                        <div className="text-center py-6 font-bold text-green-900 border-2 border-green-900 bg-white">
-                            Loading your reports...
+                        <div className="space-y-4">
+                            {[1, 2].map(i => (
+                                <div key={i} className="bg-white border-2 border-green-900 relative shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]">
+                                    <div className="bg-green-100 border-b-2 border-green-900 p-3 flex justify-between items-center h-[46px]">
+                                        <div className="flex items-center gap-2 w-1/3">
+                                            <div className="w-4 h-4 bg-green-200 animate-pulse shrink-0"></div>
+                                            <div className="h-4 w-full bg-green-200 animate-pulse"></div>
+                                        </div>
+                                        <div className="w-16 h-6 bg-green-200 animate-pulse border border-green-900"></div>
+                                    </div>
+                                    <div className="p-4 space-y-3">
+                                        <div className="w-full h-4 bg-gray-200 animate-pulse"></div>
+                                        <div className="w-3/4 h-4 bg-gray-200 animate-pulse"></div>
+                                        <div className="pt-2 flex items-center justify-between gap-2">
+                                            <div className="h-8 w-32 bg-green-50 animate-pulse border-2 border-green-200"></div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-6 w-12 bg-gray-200 animate-pulse border-2 border-gray-300"></div>
+                                                <div className="h-6 w-16 bg-gray-200 animate-pulse border-2 border-gray-300"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     ) : history.length === 0 ? (
                         <div className="text-center py-6 font-bold text-green-900 border-2 border-green-900 bg-white">

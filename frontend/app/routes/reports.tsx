@@ -21,11 +21,12 @@ export default function Reports() {
     const student_id = localStorage.getItem('student_id');
     if (!student_id) return;
 
-    fetch(`${API_URL}/api/status/?student_id=${student_id}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setReportData(data);
-      });
+    Promise.all([
+      fetch(`${API_URL}/api/status/?student_id=${student_id}`).then(res => res.json()),
+      new Promise(resolve => setTimeout(resolve, 800))
+    ]).then(([data]) => {
+      setReportData(data);
+    });
   };
 
   useEffect(() => {
@@ -188,81 +189,103 @@ export default function Reports() {
       )}
 
       <div className="grid gap-4 mt-4">
-        <div className="bg-white p-7 border-2 border-green-900 relative">
-          <div className="absolute inset-0 bg-green-900 -z-10 translate-x-1 translate-y-1"></div>
+        {!reportData ? (
+          <div className="bg-white p-7 border-2 border-green-900 relative shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-6 h-6 bg-gray-200 animate-pulse rounded-full shrink-0"></div>
+              <div className="h-6 w-40 bg-gray-200 animate-pulse"></div>
+            </div>
 
-          <h3 className="font-black text-gray-900 text-xl mb-6 flex items-center gap-3 uppercase tracking-wide">
-            <PieChart className="text-green-700" strokeWidth={3} size={24} />
-            {currentMonthYear}
-          </h3>
+            <div className="flex items-end justify-between mb-3 border-b-2 border-dashed border-gray-200 pb-2">
+              <div className="h-3 w-24 bg-gray-200 animate-pulse mb-1"></div>
+              <div className="h-8 w-28 bg-gray-200 animate-pulse"></div>
+            </div>
 
-          <div className="flex items-end justify-between mb-3 border-b-2 border-dashed border-gray-300 pb-2">
-            <p className="font-black text-gray-600 text-xs uppercase tracking-widest">
-              Total Progress
-            </p>
-            <p className="font-black text-green-700 text-2xl">
-              {totalHours}{' '}
-              <span className="text-sm text-gray-500">
-                / {totalRequired} Hrs
-              </span>
-            </p>
-          </div>
+            <div className="w-full bg-green-50 border-2 border-green-200 h-6 mb-8 relative animate-pulse"></div>
 
-          <div className="w-full bg-green-100 border-2 border-green-900 h-6 mb-8 overflow-hidden relative">
-            <div
-              className="bg-green-600 h-full border-r-2 border-green-900 relative transition-all duration-1000"
-              style={{ width: `${progressPercent}%` }}
-            >
-              <div
-                className="absolute inset-0 opacity-20"
-                style={{
-                  backgroundImage:
-                    'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,1) 5px, rgba(0,0,0,1) 10px)',
-                }}
-              ></div>
+            <div className="space-y-4">
+              <div className="w-full h-[56px] border-2 border-green-100 bg-gray-200 animate-pulse"></div>
+              <div className="w-full h-[56px] border-2 border-green-100 bg-gray-200 animate-pulse"></div>
+              <div className="w-full h-[56px] border-2 border-green-100 bg-gray-200 animate-pulse"></div>
             </div>
           </div>
+        ) : (
+          <div className="bg-white p-7 border-2 border-green-900 relative">
+            <div className="absolute inset-0 bg-green-900 -z-10 translate-x-1 translate-y-1"></div>
 
-          {/* Hidden File Input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept=".pdf,.doc,.docx"
-            className="hidden"
-          />
+            <h3 className="font-black text-gray-900 text-xl mb-6 flex items-center gap-3 uppercase tracking-wide">
+              <PieChart className="text-green-700" strokeWidth={3} size={24} />
+              {currentMonthYear}
+            </h3>
 
-          <div className="space-y-4">
-            <button
-              onClick={openPreview}
-              className="w-full bg-green-700 border-2 border-green-900 text-white p-4 hover:bg-green-800 transition-colors flex items-center justify-center gap-3 font-black text-lg uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative"
-            >
-              <Eye size={24} strokeWidth={3} />
-              View DTR
-            </button>
+            <div className="flex items-end justify-between mb-3 border-b-2 border-dashed border-gray-300 pb-2">
+              <p className="font-black text-gray-600 text-xs uppercase tracking-widest">
+                Total Progress
+              </p>
+              <p className="font-black text-green-700 text-2xl">
+                {totalHours}{' '}
+                <span className="text-sm text-gray-500">
+                  / {totalRequired} Hrs
+                </span>
+              </p>
+            </div>
 
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="w-full bg-green-100 text-green-900 p-4 border-2 border-green-900 hover:bg-green-200 transition-colors flex items-center justify-center gap-3 font-black text-lg uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative disabled:opacity-50"
-            >
-              {isUploading ? (
-                <div className="w-6 h-6 border-4 border-green-900 border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <Upload size={24} strokeWidth={3} />
-              )}
-              {isUploading ? 'Uploading...' : 'Upload DTR'}
-            </button>
+            <div className="w-full bg-green-100 border-2 border-green-900 h-6 mb-8 overflow-hidden relative">
+              <div
+                className="bg-green-600 h-full border-r-2 border-green-900 relative transition-all duration-1000"
+                style={{ width: `${progressPercent}%` }}
+              >
+                <div
+                  className="absolute inset-0 opacity-20"
+                  style={{
+                    backgroundImage:
+                      'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,1) 5px, rgba(0,0,0,1) 10px)',
+                  }}
+                ></div>
+              </div>
+            </div>
 
-            <button
-              onClick={handleEmail}
-              className="w-full bg-white text-green-900 p-4 border-2 border-green-900 hover:bg-gray-100 transition-colors flex items-center justify-center gap-3 font-black text-lg uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative"
-            >
-              <Mail size={24} strokeWidth={3} />
-              Email Supervisor
-            </button>
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".pdf,.doc,.docx"
+              className="hidden"
+            />
+
+            <div className="space-y-4">
+              <button
+                onClick={openPreview}
+                className="w-full bg-green-700 border-2 border-green-900 text-white p-4 hover:bg-green-800 transition-colors flex items-center justify-center gap-3 font-black text-lg uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative"
+              >
+                <Eye size={24} strokeWidth={3} />
+                View DTR
+              </button>
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="w-full bg-green-100 text-green-900 p-4 border-2 border-green-900 hover:bg-green-200 transition-colors flex items-center justify-center gap-3 font-black text-lg uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative disabled:opacity-50"
+              >
+                {isUploading ? (
+                  <div className="w-6 h-6 border-4 border-green-900 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Upload size={24} strokeWidth={3} />
+                )}
+                {isUploading ? 'Uploading...' : 'Upload DTR'}
+              </button>
+
+              <button
+                onClick={handleEmail}
+                className="w-full bg-white text-green-900 p-4 border-2 border-green-900 hover:bg-gray-100 transition-colors flex items-center justify-center gap-3 font-black text-lg uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative"
+              >
+                <Mail size={24} strokeWidth={3} />
+                Email Supervisor
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Modal remains the same */}

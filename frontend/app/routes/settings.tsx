@@ -30,9 +30,11 @@ export default function Settings() {
             return;
         }
 
-        fetch(`${API_URL}/api/profile/?student_id=${student_id}`)
-            .then(res => res.json())
-            .then(data => {
+        Promise.all([
+            fetch(`${API_URL}/api/profile/?student_id=${student_id}`).then(res => res.json()),
+            new Promise(resolve => setTimeout(resolve, 800))
+        ])
+            .then(([data]) => {
                 if (data.error) {
                     navigate("/login");
                     return;
@@ -120,8 +122,37 @@ export default function Settings() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center min-h-[100dvh]">
-                <div className="w-12 h-12 border-4 border-green-900 border-t-transparent rounded-full animate-spin"></div>
+            <div className="p-6 max-w-md mx-auto pb-24">
+                <header className="mb-8 mt-4 text-center border-b-2 border-green-900 pb-6 flex flex-col items-center">
+                    <div className="w-20 h-20 bg-gray-200 animate-pulse border-2 border-green-900 mb-5 shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]"></div>
+                    <div className="h-8 w-40 bg-gray-200 animate-pulse mb-2 block mx-auto"></div>
+                    <div className="h-3 w-32 bg-gray-200 animate-pulse block mx-auto"></div>
+                </header>
+
+                <div className="bg-white border-2 border-green-900 p-5 mb-6 shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]">
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 bg-gray-200 animate-pulse border-2 border-green-900 shrink-0"></div>
+                        <div className="w-full gap-2 flex flex-col justify-center">
+                            <div className="h-5 w-3/4 bg-gray-200 animate-pulse"></div>
+                            <div className="h-3 w-1/2 bg-gray-200 animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white border-2 border-green-900 p-6 mb-6 shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]">
+                    <div className="h-6 w-32 bg-gray-200 animate-pulse mb-6 border-b-2 border-green-900 pb-3"></div>
+                    <div className="space-y-4 mb-6">
+                        <div>
+                            <div className="h-3 w-20 bg-gray-200 animate-pulse mb-2"></div>
+                            <div className="h-12 w-full bg-gray-100 animate-pulse border-2 border-gray-200"></div>
+                        </div>
+                        <div>
+                            <div className="h-3 w-20 bg-gray-200 animate-pulse mb-2"></div>
+                            <div className="h-12 w-full bg-gray-100 animate-pulse border-2 border-gray-200"></div>
+                        </div>
+                    </div>
+                    <div className="h-12 w-full bg-gray-200 animate-pulse border-2 border-gray-300"></div>
+                </div>
             </div>
         );
     }

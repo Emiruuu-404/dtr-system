@@ -7,9 +7,11 @@ export default function Leaderboards() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch(`${API_URL}/api/leaderboards/`)
-            .then(res => res.json())
-            .then(data => {
+        Promise.all([
+            fetch(`${API_URL}/api/leaderboards/`).then(res => res.json()),
+            new Promise(resolve => setTimeout(resolve, 800))
+        ])
+            .then(([data]) => {
                 if (data.leaderboard) {
                     setLeaderboard(data.leaderboard);
                 }
@@ -32,8 +34,19 @@ export default function Leaderboards() {
 
             <div className="space-y-4">
                 {loading ? (
-                    <div className="flex justify-center p-12">
-                        <div className="w-12 h-12 border-4 border-green-900 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="space-y-4">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="p-4 border-2 border-green-900 flex items-center justify-between bg-white shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]">
+                                <div className="flex items-center gap-4 w-full">
+                                    <div className="w-10 h-10 border-2 border-green-900 bg-gray-200 animate-pulse shadow-[2px_2px_0px_0px_rgba(20,83,45,1)] shrink-0"></div>
+                                    <div className="flex flex-col gap-2 w-full max-w-[150px]">
+                                        <div className="h-5 bg-gray-200 animate-pulse w-full"></div>
+                                        <div className="h-3 bg-gray-200 animate-pulse w-2/3"></div>
+                                    </div>
+                                </div>
+                                <div className="w-16 h-8 bg-gray-200 animate-pulse shrink-0"></div>
+                            </div>
+                        ))}
                     </div>
                 ) : (
                     leaderboard.map((user, index) => {

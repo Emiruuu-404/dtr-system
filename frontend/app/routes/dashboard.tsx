@@ -12,11 +12,13 @@ export default function Dashboard() {
         const student_id = localStorage.getItem("student_id");
         if (!student_id) return;
 
-        fetch(`${API_URL}/api/status/?student_id=${student_id}`)
-            .then(res => res.json())
-            .then(data => {
-                setStatusData(data);
-            });
+        // Ensure skeleton animation is visible for at least 800ms
+        Promise.all([
+            fetch(`${API_URL}/api/status/?student_id=${student_id}`).then(res => res.json()),
+            new Promise(resolve => setTimeout(resolve, 800))
+        ]).then(([data]) => {
+            setStatusData(data);
+        });
     };
     const formatTimeForInput = (timeStr: string) => {
         if (!timeStr || timeStr === "--:--") return "";
@@ -65,13 +67,22 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-bold text-gray-500 mb-1 uppercase tracking-widest">Total OJT Hours</p>
-                            <h2 className="text-4xl font-black text-green-700">{statusData?.total_hours ?? 0} <span className="text-xl font-bold text-gray-400">/ {statusData?.total_required ?? 486}</span></h2>
+                            {!statusData ? (
+                                <div className="flex items-end gap-2">
+                                    <div className="h-10 w-16 bg-gray-200 animate-pulse"></div>
+                                    <div className="h-6 w-12 bg-gray-200 animate-pulse mb-1"></div>
+                                </div>
+                            ) : (
+                                <h2 className="text-4xl font-black text-green-700">{statusData?.total_hours ?? 0} <span className="text-xl font-bold text-gray-400">/ {statusData?.total_required ?? 486}</span></h2>
+                            )}
                         </div>
                         <div className="w-14 h-14 bg-green-100 flex items-center justify-center border-2 border-green-900 shrink-0">
                             <Calendar className="text-green-800" strokeWidth={2.5} size={28} />
                         </div>
                     </div>
-                    {statusData?.est_end_date && (
+                    {!statusData ? (
+                        <div className="h-16 bg-green-50 animate-pulse border-2 border-green-200 mt-1 w-full"></div>
+                    ) : statusData?.est_end_date && (
                         <div className="bg-green-50 border-2 border-green-900 p-3 mt-1">
                             <p className="text-[10px] font-black text-green-800 uppercase tracking-widest mb-1">Estimated End Date</p>
                             <p className="text-green-900 font-bold text-sm tracking-wide">{statusData.est_end_date}</p>
@@ -85,7 +96,9 @@ export default function Dashboard() {
                         <ClockIcon className="text-green-800" strokeWidth={2.5} size={22} />
                         <h3 className="font-bold text-gray-900 text-lg uppercase tracking-wide">Today's Status</h3>
                     </div>
-                    {statusData?.status?.includes("IN") && statusData.status !== "Not Timed In" ? (
+                    {!statusData ? (
+                        <div className="h-10 w-40 bg-gray-200 animate-pulse border-2 border-gray-100"></div>
+                    ) : statusData?.status?.includes("IN") && statusData.status !== "Not Timed In" ? (
                         <div className="flex items-center gap-2 text-green-700 bg-green-100 border-2 border-green-900 w-fit px-4 py-2 text-sm font-bold tracking-wide uppercase">
                             <CheckCircle size={18} strokeWidth={2.5} />
                             {statusData.status}
@@ -101,7 +114,23 @@ export default function Dashboard() {
                 <div className="bg-white p-6 border-2 border-green-900">
                     <p className="text-sm font-bold text-gray-500 mb-4 uppercase tracking-widest">Today's Punches</p>
 
-                    {statusData?.today_logs?.length > 0 ? (
+                    {!statusData ? (
+                        <div className="space-y-3">
+                            {[1, 2].map((i) => (
+                                <div key={i} className="flex items-center justify-between border-b-2 border-gray-100 pb-2 last:border-0 last:pb-0">
+                                    <div className="flex flex-col gap-1 w-20">
+                                        <div className="h-3 w-12 bg-gray-200 animate-pulse"></div>
+                                        <div className="h-6 w-full bg-gray-200 animate-pulse"></div>
+                                    </div>
+                                    <div className="w-8 h-[2px] bg-gray-200"></div>
+                                    <div className="flex flex-col items-end gap-1 w-20">
+                                        <div className="h-3 w-12 bg-gray-200 animate-pulse inline-block"></div>
+                                        <div className="h-6 w-full bg-gray-200 animate-pulse inline-block"></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : statusData?.today_logs?.length > 0 ? (
                         <div className="space-y-3">
                             {statusData.today_logs.map((log: any, index: number) => (
                                 <div key={index} className="flex items-center justify-between border-b-2 border-gray-100 pb-2 last:border-0 last:pb-0">
