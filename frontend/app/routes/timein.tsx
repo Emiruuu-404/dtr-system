@@ -246,8 +246,14 @@ export default function TimeIn() {
                                     multiple
                                     onChange={(e) => {
                                         if (e.target.files) {
-                                            setFiles(Array.from(e.target.files));
+                                            const newFiles = Array.from(e.target.files);
+                                            setFiles(prev => {
+                                                const existingNames = new Set(prev.map(f => f.name));
+                                                return [...prev, ...newFiles.filter(f => !existingNames.has(f.name))];
+                                            });
                                         }
+                                        // Reset input value so the same file(s) can be selected again if needed
+                                        e.target.value = '';
                                     }}
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                 />
@@ -269,7 +275,16 @@ export default function TimeIn() {
                                                 <ImageIcon size={14} className="min-w-fit text-green-700" />
                                                 <span className="truncate">{f.name}</span>
                                             </div>
-                                            <span className="text-gray-400 min-w-fit ml-2 font-black">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-gray-400 min-w-fit font-black">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}
+                                                    className="text-rose-600 hover:bg-rose-100 p-1 border-2 border-transparent hover:border-rose-900 transition-colors"
+                                                >
+                                                    <X size={12} strokeWidth={3} />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

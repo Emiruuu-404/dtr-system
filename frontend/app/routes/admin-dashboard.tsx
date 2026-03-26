@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, UserX, UserCheck, Clock, Search } from "lucide-react";
+import { Users, UserX, UserCheck, Clock, Search, AlertCircle, CheckCircle } from "lucide-react";
 import { API_URL } from "../config";
 import { useNavigate } from "react-router";
 
@@ -25,6 +25,9 @@ export default function AdminDashboard() {
     const [showAdminPwModal, setShowAdminPwModal] = useState(false);
     const [adminPwForm, setAdminPwForm] = useState({ current_password: "", new_password: "", confirm_password: "" });
 
+    // Global Feedback
+    const [feedbackModal, setFeedbackModal] = useState<{ show: boolean, type: 'success' | 'error', message: string }>({ show: false, type: 'success', message: '' });
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -34,18 +37,20 @@ export default function AdminDashboard() {
             return;
         }
 
-        fetch(`${API_URL}/api/admin-dashboard/`, {
-            headers: {
-                "Authorization": `Bearer ${adminToken}`
-            }
-        })
-            .then(res => {
+        Promise.all([
+            fetch(`${API_URL}/api/admin-dashboard/`, {
+                headers: {
+                    "Authorization": `Bearer ${adminToken}`
+                }
+            }).then(res => {
                 if (!res.ok) {
                     throw new Error("Unauthorized");
                 }
                 return res.json();
-            })
-            .then(data => {
+            }),
+            new Promise(resolve => setTimeout(resolve, 800))
+        ])
+            .then(([data]) => {
                 setData(data);
                 setLoading(false);
             })
@@ -56,7 +61,78 @@ export default function AdminDashboard() {
             });
     }, []);
 
-    if (loading) return <div className="p-6 text-center mt-20 font-bold text-gray-500">Loading Dashboard...</div>;
+    if (loading) {
+        return (
+            <div className="p-6 max-w-6xl mx-auto space-y-6">
+                <header className="mb-8 mt-4 flex items-start justify-between">
+                    <div>
+                        <div className="h-10 w-72 bg-gray-200 animate-pulse mb-3"></div>
+                        <div className="h-5 w-96 bg-gray-200 animate-pulse"></div>
+                    </div>
+                    <div className="flex gap-3 mt-1 object-right">
+                        <div className="h-10 w-24 bg-gray-200 animate-pulse border-2 border-gray-100"></div>
+                        <div className="h-10 w-32 bg-gray-200 animate-pulse border-2 border-gray-100"></div>
+                    </div>
+                </header>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className={`bg-white p-6 border-4 ${i === 2 ? 'border-rose-100 shadow-[8px_8px_0px_0px_#ffe4e6]' : 'border-green-100 shadow-[8px_8px_0px_0px_#dcfce3]'}`}>
+                            <div className="flex items-center justify-between">
+                                <div className="w-full">
+                                    <div className="h-4 w-32 bg-gray-200 animate-pulse mb-3"></div>
+                                    <div className="h-12 w-16 bg-gray-200 animate-pulse"></div>
+                                </div>
+                                <div className={`w-14 h-14 flex items-center justify-center shrink-0 border-2 ${i === 2 ? 'bg-rose-50 border-rose-100' : 'bg-green-50 border-green-100'}`}>
+                                    <div className="h-8 w-8 bg-gray-200 animate-pulse rounded-full"></div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="bg-white border-4 border-gray-100 mt-8 overflow-hidden">
+                    <div className="p-4 border-b-4 border-gray-100 bg-gray-50 flex items-center justify-between flex-wrap gap-4">
+                        <div className="h-7 w-48 bg-gray-200 animate-pulse"></div>
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-28 bg-gray-200 animate-pulse border-2 border-gray-100"></div>
+                            <div className="h-10 w-28 bg-gray-200 animate-pulse border-2 border-gray-100"></div>
+                            <div className="h-10 w-56 bg-gray-200 animate-pulse border-2 border-gray-100"></div>
+                        </div>
+                    </div>
+                    
+                    <div className="p-6 space-y-4">
+                        <div className="flex border-b-4 border-gray-100 pb-4 mb-4">
+                            <div className="w-1/3 h-4 bg-gray-200 animate-pulse"></div>
+                            <div className="w-1/6 h-4 bg-gray-200 animate-pulse"></div>
+                            <div className="w-1/6 h-4 bg-gray-200 animate-pulse"></div>
+                            <div className="w-1/3 h-4 bg-gray-200 animate-pulse"></div>
+                        </div>
+                        {[...Array(5)].map((_, i) => (
+                            <div key={i} className="flex justify-between items-center py-3 border-b-2 border-gray-50 last:border-0">
+                                <div className="flex gap-4 w-1/3">
+                                    <div className="w-full">
+                                        <div className="h-5 w-3/4 bg-gray-200 animate-pulse mb-2"></div>
+                                        <div className="h-3 w-1/2 bg-gray-200 animate-pulse"></div>
+                                    </div>
+                                </div>
+                                <div className="w-1/6">
+                                    <div className="h-6 w-24 bg-gray-200 animate-pulse border-2 border-gray-100"></div>
+                                </div>
+                                <div className="w-1/6 font-black">
+                                    <div className="h-6 w-12 bg-gray-200 animate-pulse"></div>
+                                </div>
+                                <div className="w-1/3">
+                                    <div className="h-4 w-full bg-gray-200 animate-pulse mb-1 border-2 border-gray-100"></div>
+                                    <div className="h-2 w-16 bg-gray-200 animate-pulse ml-auto mt-2"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
     if (!data) return <div className="p-6 text-center mt-20 font-bold text-red-500">Failed to load data</div>;
 
     const filteredInterns = data.interns.filter((intern: any) => 
@@ -73,8 +149,8 @@ export default function AdminDashboard() {
 
     const handleAdminPwChange = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (adminPwForm.new_password !== adminPwForm.confirm_password) return alert("New passwords do not match");
-        if (adminPwForm.new_password.length < 8) return alert("New password must be at least 8 characters");
+        if (adminPwForm.new_password !== adminPwForm.confirm_password) return setFeedbackModal({ show: true, type: 'error', message: "New passwords do not match" });
+        if (adminPwForm.new_password.length < 8) return setFeedbackModal({ show: true, type: 'error', message: "New password must be at least 8 characters" });
         
         setActionLoading(true);
         const adminId = localStorage.getItem("admin_id") || "admin";
@@ -90,14 +166,14 @@ export default function AdminDashboard() {
             });
             const d = await res.json();
             if (res.ok) {
-                alert("Admin password changed successfully.");
+                setFeedbackModal({ show: true, type: 'success', message: "Admin password changed successfully." });
                 setShowAdminPwModal(false);
                 setAdminPwForm({ current_password: "", new_password: "", confirm_password: "" });
             } else {
-                alert(d.error || "Failed to change admin password");
+                setFeedbackModal({ show: true, type: 'error', message: d.error || "Failed to change admin password" });
             }
         } catch (err) {
-            alert("An error occurred");
+            setFeedbackModal({ show: true, type: 'error', message: "An error occurred" });
         }
         setActionLoading(false);
     };
@@ -116,7 +192,7 @@ export default function AdminDashboard() {
             a.download = "intern_master_roster.csv";
             a.click();
         } catch (e) {
-            alert("Failed to export CSV");
+            setFeedbackModal({ show: true, type: 'error', message: "Failed to export CSV" });
         }
     };
 
@@ -158,18 +234,20 @@ export default function AdminDashboard() {
                 })
             });
             const d = await res.json();
-            alert(d.message || d.error);
             if (res.ok) {
+                setFeedbackModal({ show: true, type: 'success', message: d.message || "Action successful" });
                 if (action === "toggle_active") {
                     setSelectedIntern({...selectedIntern, is_active: d.is_active});
                     setData({...data, interns: data.interns.map((i:any) => i.student_id === selectedIntern.student_id ? {...i, is_active: d.is_active} : i)});
                 } else if (action === "delete_intern") {
                     setSelectedIntern(null);
-                    window.location.reload();
+                    setData({...data, interns: data.interns.filter((i:any) => i.student_id !== selectedIntern.student_id)});
                 }
+            } else {
+                setFeedbackModal({ show: true, type: 'error', message: d.error || "Action failed." });
             }
         } catch (e) {
-            alert("Action failed.");
+            setFeedbackModal({ show: true, type: 'error', message: "Action failed." });
         }
         setActionLoading(false);
     };
@@ -188,7 +266,7 @@ export default function AdminDashboard() {
             a.download = `DTR_${selectedIntern.name.replace(/\s+/g, '_')}_${period}.pdf`;
             a.click();
         } catch (e) {
-            alert("Failed to download DTR");
+            setFeedbackModal({ show: true, type: 'error', message: "Failed to download DTR" });
         }
     };
 
@@ -220,14 +298,14 @@ export default function AdminDashboard() {
             });
             const d = await res.json();
             if (res.ok) {
-                alert("Record updated successfully");
+                setFeedbackModal({ show: true, type: 'success', message: "Record updated successfully" });
                 setEditingRecord(null);
                 loadInternData(selectedIntern); // refresh data
             } else {
-                alert(d.error || "Failed to edit record");
+                setFeedbackModal({ show: true, type: 'error', message: d.error || "Failed to edit record" });
             }
         } catch (err) {
-            alert("Network error.");
+            setFeedbackModal({ show: true, type: 'error', message: "Network error." });
         }
     };
 
@@ -632,7 +710,7 @@ export default function AdminDashboard() {
                                     <button 
                                         onClick={() => {
                                             if (actionModal === 'reset_password') {
-                                                if (actionInput.length < 6) return alert("Password must be at least 6 characters.");
+                                                if (actionInput.length < 6) return setFeedbackModal({ show: true, type: 'error', message: "Password must be at least 6 characters." });
                                                 handleAdminAction('reset_password', { new_password: actionInput });
                                             } else {
                                                 handleAdminAction(actionModal);
@@ -724,6 +802,37 @@ export default function AdminDashboard() {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {/* FEEDBACK MODAL */}
+            {feedbackModal.show && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white p-6 w-full max-w-sm border-4 border-green-900 shadow-[8px_8px_0px_0px_rgba(20,83,45,1)] relative animate-in fade-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center">
+                            {feedbackModal.type === 'error' ? (
+                                <AlertCircle size={56} strokeWidth={2.5} className="text-rose-600 mb-4" />
+                            ) : (
+                                <CheckCircle size={56} strokeWidth={2.5} className="text-green-600 mb-4" />
+                            )}
+                            <h3 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-wide">
+                                {feedbackModal.type === 'error' ? 'Error' : 'Success'}
+                            </h3>
+                            <p className="text-gray-700 font-bold mb-8 uppercase tracking-wide text-sm">
+                                {feedbackModal.message}
+                            </p>
+                            <button
+                                onClick={() => setFeedbackModal({ show: false, type: 'success', message: '' })}
+                                className={`w-full text-white p-4 border-2 transition-colors font-black uppercase tracking-widest text-lg ${
+                                    feedbackModal.type === 'error' 
+                                    ? 'bg-rose-700 border-rose-900 hover:bg-rose-800' 
+                                    : 'bg-green-700 border-green-900 hover:bg-green-800'
+                                }`}
+                            >
+                                CLOSE
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

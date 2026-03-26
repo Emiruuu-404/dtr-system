@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Lock, Briefcase, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Briefcase, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { API_URL } from '../config';
 import AuthLoadingOverlay from '../components/AuthLoadingOverlay';
@@ -8,6 +8,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [errorModal, setErrorModal] = useState<{show: boolean, message: string}>({show: false, message: ''});
 
   const navigate = useNavigate();
 
@@ -43,15 +44,15 @@ export default function Login() {
         return;
       }
 
+      setStatus(null); // Clear loading status
       if (isJson && payload?.error) {
-        setStatus(payload.error);
+        setErrorModal({ show: true, message: payload.error });
       } else {
-        setStatus(
-          `Backend error (${response.status}). Check API_URL: ${API_URL}`
-        );
+        setErrorModal({ show: true, message: `Backend error (${response.status}). Check API_URL: ${API_URL}` });
       }
     } catch {
-      setStatus(`Cannot reach backend. Check API_URL: ${API_URL}`);
+      setStatus(null);
+      setErrorModal({ show: true, message: `Cannot reach backend. Check API_URL: ${API_URL}` });
     } finally {
       setLoading(false);
     }
@@ -169,6 +170,29 @@ export default function Login() {
           </Link>
         </div>
       </div>
+
+      {/* LOGIN ERROR MODAL */}
+      {errorModal.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white p-6 w-full max-w-sm border-4 border-rose-900 shadow-[8px_8px_0px_0px_rgba(136,19,55,1)] relative animate-in fade-in zoom-in duration-200">
+                <div className="flex flex-col items-center text-center">
+                    <AlertCircle size={56} strokeWidth={2.5} className="text-rose-600 mb-4" />
+                    <h3 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-wide">
+                        Login Failed
+                    </h3>
+                    <p className="text-gray-700 font-bold mb-8 uppercase tracking-wide text-sm">
+                        {errorModal.message}
+                    </p>
+                    <button
+                        onClick={() => setErrorModal({ show: false, message: '' })}
+                        className="w-full text-white bg-rose-700 p-4 border-2 border-rose-900 hover:bg-rose-800 transition-colors font-black uppercase tracking-widest text-lg"
+                    >
+                        CLOSE
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

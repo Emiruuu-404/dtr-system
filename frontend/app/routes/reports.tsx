@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FileText, Eye, Mail, PieChart, Upload } from 'lucide-react';
+import { FileText, Eye, PieChart, Upload } from 'lucide-react';
 import { API_URL } from '../config';
 
 export default function Reports() {
@@ -148,13 +148,7 @@ export default function Reports() {
       .catch(() => setIsPreviewLoading(false));
   };
 
-  const handleEmail = () => {
-    setStatus('Sending email to supervisor...');
-    setTimeout(() => {
-      setStatus('Email sent!');
-      setTimeout(() => setStatus(null), 3000);
-    }, 1500);
-  };
+
 
   const totalHours = reportData?.total_hours || 0;
   const totalRequired = reportData?.total_required || 486;
@@ -276,13 +270,7 @@ export default function Reports() {
                 {isUploading ? 'Uploading...' : 'Upload DTR'}
               </button>
 
-              <button
-                onClick={handleEmail}
-                className="w-full bg-white text-green-900 p-4 border-2 border-green-900 hover:bg-gray-100 transition-colors flex items-center justify-center gap-3 font-black text-lg uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative"
-              >
-                <Mail size={24} strokeWidth={3} />
-                Email Supervisor
-              </button>
+
             </div>
           </div>
         )}

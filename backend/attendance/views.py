@@ -89,11 +89,14 @@ def login_view(request):
     try:
         if "@" in student_id:
             user_obj = Intern.objects.get(email=student_id)
-            actual_id = user_obj.student_id
         else:
-            actual_id = student_id
+            user_obj = Intern.objects.get(student_id=student_id)
+        actual_id = user_obj.student_id
     except Intern.DoesNotExist:
-        return Response({"error": "Invalid credentials"}, status=401)
+        return Response({"error": "This account does not exist or has been permanently deleted."}, status=401)
+
+    if not user_obj.is_active:
+        return Response({"error": "Your account has been deactivated. Please contact the administrator."}, status=403)
 
     user = authenticate(request, student_id=actual_id, password=password)
     
@@ -106,7 +109,7 @@ def login_view(request):
             "session_token": str(token.access_token)
         })
     else:
-        return Response({"error": "Invalid credentials"}, status=401)
+        return Response({"error": "Invalid login credentials. Please check your password."}, status=401)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -243,7 +246,7 @@ def time_out(request):
 
 
 def get_leaderboards(request):
-    interns = Intern.objects.filter(is_staff=False)
+    interns = Intern.objects.filter(is_staff=False, is_active=True)
     
     leaderboard_data = []
     for intern in interns:
