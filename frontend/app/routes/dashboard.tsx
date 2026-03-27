@@ -65,7 +65,7 @@ export default function Dashboard() {
             <div className="grid gap-4">
                 <div className="bg-white p-6 border-2 border-green-900 flex flex-col gap-4">
                     <div className="flex items-center justify-between">
-                        <div>
+                        <div className="min-w-0 flex-1 pr-2">
                             <p className="text-sm font-bold text-gray-500 mb-1 uppercase tracking-widest">Total OJT Hours</p>
                             {!statusData ? (
                                 <div className="flex items-end gap-2">
@@ -73,9 +73,9 @@ export default function Dashboard() {
                                     <div className="h-6 w-12 bg-gray-200 animate-pulse mb-1"></div>
                                 </div>
                             ) : (
-                                <h2 className="text-xl sm:text-2xl font-black text-green-700 leading-none flex items-baseline gap-1 whitespace-nowrap">
+                                <h2 className="text-3xl sm:text-4xl font-black text-green-700 leading-none flex flex-wrap items-baseline gap-1">
                                     <span>{statusData?.formatted_total_hours || "0 h 0 min"}</span>
-                                    <span className="text-xs sm:text-base font-bold text-gray-400">/ {statusData?.total_required ?? 486} h</span>
+                                    <span className="text-sm sm:text-xl font-bold text-gray-400">/ {statusData?.total_required ?? 486} h</span>
                                 </h2>
                             )}
                         </div>
@@ -188,20 +188,20 @@ export default function Dashboard() {
                         <p className="text-sm font-bold text-gray-500 mb-4 uppercase tracking-widest flex items-center gap-2">
                             Manual Time Entry
                         </p>
-                        
+
                         {(() => {
                             const amComplete = statusData?.today_logs?.[0]?.in && statusData.today_logs[0].in !== "--:--" && statusData.today_logs[0].out && statusData.today_logs[0].out !== "--:--";
                             const pmComplete = statusData?.today_logs?.[1]?.in && statusData.today_logs[1].in !== "--:--" && statusData.today_logs[1].out && statusData.today_logs[1].out !== "--:--";
-                            
+
                             const now = new Date();
                             const isAfternoonOpen = now.getHours() >= 12;
-                            
+
                             const isFullyRecorded = amComplete && pmComplete;
-                            
+
                             const disableAm = amComplete;
                             const disablePm = !amComplete || !isAfternoonOpen || pmComplete;
                             const disableSubmit = loading || isFullyRecorded || (amComplete && !isAfternoonOpen);
-                            
+
                             return (
                                 <>
                                     <div className="grid grid-cols-2 gap-3 mb-4">
