@@ -260,11 +260,16 @@ def get_leaderboards(request):
             total_hours += get_effective_hours(r.pm_time_in, r.pm_time_out)
         total_hours = round(total_hours, 2)
         
+        profile_picture_url = None
+        if intern.profile_picture:
+            profile_picture_url = request.build_absolute_uri(intern.profile_picture.url)
+
         leaderboard_data.append({
             "id": intern.id,
             "name": intern.name,
             "hours": total_hours,
-            "formatted_hours": format_hrs_mins(total_hours)
+            "formatted_hours": format_hrs_mins(total_hours),
+            "profile_picture": profile_picture_url
         })
         
     # Sort by descending hours
@@ -375,6 +380,10 @@ def get_status(request):
                 added_days += 1
         est_date_str = est.strftime("%b %d, %Y")
 
+    profile_picture_url = None
+    if user.profile_picture:
+        profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
+
     return JsonResponse({
         "name": user.name.split()[0],
         "status": status,
@@ -383,7 +392,8 @@ def get_status(request):
         "total_hours": total_hours,
         "formatted_total_hours": format_hrs_mins(total_hours),
         "total_required": total_required,
-        "est_end_date": est_date_str
+        "est_end_date": est_date_str,
+        "profile_picture": profile_picture_url
     })
 
 
@@ -921,10 +931,40 @@ def get_profile(request):
 
     try:
         user = Intern.objects.get(student_id=student_id)
+        profile_picture_url = None
+        if user.profile_picture:
+            profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
+            
         return JsonResponse({
             "name": user.name,
             "email": user.email,
-            "student_id": user.student_id
+            "student_id": user.student_id,
+            "profile_picture": profile_picture_url
+        })
+    except Intern.DoesNotExist:
+        return JsonResponse({"error": "Account not found"}, status=404)
+
+
+@csrf_exempt
+def upload_profile_picture(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST request required"}, status=405)
+
+    student_id = request.POST.get("student_id")
+    image = request.FILES.get("image")
+
+    if not student_id or not image:
+        return JsonResponse({"error": "Missing student_id or image"}, status=400)
+
+    try:
+        user = Intern.objects.get(student_id=student_id)
+        user.profile_picture = image
+        user.save()
+        
+        profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
+        return JsonResponse({
+            "message": "Profile picture uploaded successfully",
+            "profile_picture": profile_picture_url
         })
     except Intern.DoesNotExist:
         return JsonResponse({"error": "Account not found"}, status=404)
@@ -1276,6 +1316,10 @@ def get_admin_dashboard(request):
             elif today_record.pm_time_out:
                 status_today = "PM OUT"
         
+        profile_picture_url = None
+        if intern.profile_picture:
+            profile_picture_url = request.build_absolute_uri(intern.profile_picture.url)
+
         intern_list.append({
             "student_id": intern.student_id,
             "name": intern.name,
@@ -1283,7 +1327,8 @@ def get_admin_dashboard(request):
             "total_hours": total_hours,
             "formatted_total_hours": format_hrs_mins(total_hours),
             "status_today": status_today,
-            "is_active": intern.is_active
+            "is_active": intern.is_active,
+            "profile_picture": profile_picture_url
         })
         
     return Response({

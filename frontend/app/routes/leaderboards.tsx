@@ -72,11 +72,18 @@ export default function Leaderboards() {
                         return (
                             <div key={user.id} className={`p-4 border-2 border-green-900 flex items-center justify-between ${bgColor} shadow-[4px_4px_0px_0px_rgba(20,83,45,1)] transition-transform hover:-translate-y-1`}>
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <div className="w-10 h-10 border-2 border-green-900 bg-white flex items-center justify-center font-black text-green-900 shadow-[2px_2px_0px_0px_rgba(20,83,45,1)] shrink-0">
-                                        #{user.rank}
+                                    <div className="w-10 h-10 border-2 border-green-900 bg-white flex items-center justify-center font-black text-green-900 shadow-[2px_2px_0px_0px_rgba(20,83,45,1)] shrink-0 overflow-hidden">
+                                        {user.profile_picture ? (
+                                            <img src={user.profile_picture} alt={user.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span>#{user.rank}</span>
+                                        )}
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <h3 className="font-black text-gray-900 uppercase tracking-wide truncate text-sm sm:text-base">{user.name}</h3>
+                                        <h3 className="font-black text-gray-900 uppercase tracking-wide truncate text-sm sm:text-base flex items-center gap-2">
+                                            {user.name}
+                                            {user.profile_picture && <span className="text-[10px] bg-green-900 text-white px-1 font-bold">#{user.rank}</span>}
+                                        </h3>
                                         <p className="font-bold text-gray-600 text-[10px] tracking-widest uppercase">Hours Rendered</p>
                                     </div>
                                 </div>

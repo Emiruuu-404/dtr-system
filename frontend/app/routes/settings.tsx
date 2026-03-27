@@ -15,6 +15,8 @@ export default function Settings() {
     // Profile form
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [profilePicture, setProfilePicture] = useState<string | null>(null);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
     // Password form
     const [currentPassword, setCurrentPassword] = useState("");
@@ -42,6 +44,7 @@ export default function Settings() {
                 setProfile(data);
                 setName(data.name);
                 setEmail(data.email);
+                setProfilePicture(data.profile_picture);
                 setLoading(false);
             })
             .catch(() => {
@@ -53,6 +56,37 @@ export default function Settings() {
         setStatus(msg);
         setStatusType(type);
         setTimeout(() => setStatus(null), 3000);
+    };
+
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const student_id = localStorage.getItem("student_id");
+        if (!student_id) return;
+
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("student_id", student_id);
+
+        setUploadingPhoto(true);
+        try {
+            const res = await fetch(`${API_URL}/api/upload-profile-picture/`, {
+                method: "POST",
+                body: formData
+            });
+            const data = await res.json();
+            if (data.profile_picture) {
+                setProfilePicture(data.profile_picture);
+                showStatus("Profile picture updated!", "success");
+            } else {
+                showStatus(data.error || "Upload failed", "error");
+            }
+        } catch (err) {
+            showStatus("Server error during upload", "error");
+        } finally {
+            setUploadingPhoto(false);
+        }
     };
 
     const handleUpdateProfile = (e: React.FormEvent) => {
@@ -124,7 +158,7 @@ export default function Settings() {
         return (
             <div className="p-6 max-w-md mx-auto pb-24">
                 <header className="mb-8 mt-4 text-center border-b-2 border-green-900 pb-6 flex flex-col items-center">
-                    <div className="w-20 h-20 bg-gray-200 animate-pulse border-2 border-green-900 mb-5 shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]"></div>
+                    <div className="w-24 h-24 bg-gray-200 animate-pulse border-4 border-green-900 mb-5 shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]"></div>
                     <div className="h-8 w-40 bg-gray-200 animate-pulse mb-2 block mx-auto"></div>
                     <div className="h-3 w-32 bg-gray-200 animate-pulse block mx-auto"></div>
                 </header>
@@ -165,15 +199,30 @@ export default function Settings() {
                 subtitle="Securing your session"
             />
             <header className="mb-8 mt-4 text-center border-b-2 border-green-900 pb-6">
-                <div className="w-20 h-20 bg-green-200 border-2 border-green-900 flex items-center justify-center mx-auto mb-5 relative hover:-translate-y-2 transition-transform shadow-[4px_4px_0px_0px_rgba(20,83,45,1)]">
-                    <SettingsIcon size={36} strokeWidth={3} className="text-green-900" />
+                <div className="w-24 h-24 mx-auto mb-5 relative group">
+                    <div className="w-full h-full bg-green-200 border-4 border-green-900 flex items-center justify-center font-black text-green-900 text-3xl shadow-[4px_4px_0px_0px_rgba(20,83,45,1)] overflow-hidden relative">
+                        {profilePicture ? (
+                            <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            name?.charAt(0)?.toUpperCase()
+                        )}
+                        {uploadingPhoto && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        )}
+                    </div>
+                    <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-green-700 border-2 border-green-900 flex items-center justify-center cursor-pointer hover:bg-green-800 transition-colors shadow-[2px_2px_0px_0px_rgba(20,83,45,1)] active:translate-x-0.5 active:translate-y-0.5">
+                        <User size={20} strokeWidth={3} className="text-white" />
+                        <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} disabled={uploadingPhoto} />
+                    </label>
                 </div>
-                <h1 className="text-3xl font-black text-green-900 mb-2 uppercase tracking-tight">Settings</h1>
+                <h1 className="text-3xl font-black text-green-900 mb-1 uppercase tracking-tight">Settings</h1>
                 <p className="text-green-800 font-bold uppercase tracking-widest text-xs">Account Management</p>
             </header>
 
             {status && (
-                <div className={`mb-4 p-4 border-2 border-green-900 ${statusType === "success" ? "bg-green-100" : "bg-red-100"} text-green-900 font-bold text-center uppercase tracking-wider text-sm`}>
+                <div className={`mb-4 p-4 border-2 border-green-900 ${statusType === "success" ? "bg-green-100" : "bg-red-100"} text-green-900 font-bold text-center uppercase tracking-wider text-sm sticky top-4 z-20 shadow-md`}>
                     {status}
                 </div>
             )}
@@ -182,11 +231,15 @@ export default function Settings() {
             <div className="bg-green-50 p-5 border-2 border-green-900 mb-6 relative">
                 <div className="absolute inset-0 bg-green-900 -z-10 translate-x-1 translate-y-1"></div>
                 <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-green-200 border-2 border-green-900 flex items-center justify-center font-black text-green-900 text-xl shadow-[2px_2px_0px_0px_rgba(20,83,45,1)]">
-                        {name?.charAt(0)?.toUpperCase()}
+                    <div className="w-14 h-14 bg-green-200 border-2 border-green-900 flex items-center justify-center font-black text-green-900 text-xl shadow-[2px_2px_0px_0px_rgba(20,83,45,1)] overflow-hidden">
+                        {profilePicture ? (
+                            <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            name?.charAt(0)?.toUpperCase()
+                        )}
                     </div>
                     <div>
-                        <h3 className="font-black text-green-900 text-lg uppercase">{name}</h3>
+                        <h3 className="font-black text-green-900 text-lg uppercase truncate max-w-[200px]">{name}</h3>
                         <p className="font-bold text-green-700 text-xs uppercase tracking-widest flex items-center gap-1">
                             <IdCard size={12} strokeWidth={3} /> {profile?.student_id}
                         </p>

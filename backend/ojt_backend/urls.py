@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from attendance.views import register, login_view, admin_login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report, get_report_image, upload_dtr, verify_session, get_admin_dashboard, admin_intern_actions, admin_export_csv
+from attendance.views import register, login_view, admin_login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report, get_report_image, upload_dtr, verify_session, get_admin_dashboard, admin_intern_actions, admin_export_csv, upload_profile_picture
 
 def home(request):
     return redirect('/login/')
@@ -41,6 +41,7 @@ urlpatterns =[
     path('api/delete-report/', delete_report),
     path('api/reports/', get_reports),
     path('api/report-image/<int:image_id>/', get_report_image),
+    path('api/upload-profile-picture/', upload_profile_picture),
     
     # Inayos ang path na ito (tinanggal ang views.)
     path('api/upload-dtr/', upload_dtr, name='upload_dtr'),

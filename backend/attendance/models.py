@@ -35,6 +35,7 @@ class Intern(AbstractBaseUser, PermissionsMixin):
     
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    profile_picture = models.ImageField(upload_to="profiles/", null=True, blank=True)
     
     objects = InternManager()
 

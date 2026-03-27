@@ -55,11 +55,18 @@ export default function Dashboard() {
 
     return (
         <div className="p-6 max-w-md mx-auto">
-            <header className="mb-8 mt-4">
-                <h1 className="text-3xl font-bold text-green-900 mb-1">
-                    Hello, {userName}
-                </h1>
-                <p className="text-green-800">Here's your OJT summary today.</p>
+            <header className="mb-8 mt-4 flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-green-900 mb-1">
+                        Hello, {userName}
+                    </h1>
+                    <p className="text-green-800">Here's your OJT summary today.</p>
+                </div>
+                {statusData?.profile_picture && (
+                    <div className="w-16 h-16 rounded-full border-2 border-green-900 overflow-hidden shadow-[2px_2px_0px_0px_rgba(20,83,45,1)]">
+                        <img src={statusData.profile_picture} alt="Profile" className="w-full h-full object-cover" />
+                    </div>
+                )}
             </header>
 
             <div className="grid gap-4">
