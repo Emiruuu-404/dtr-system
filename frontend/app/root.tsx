@@ -91,6 +91,16 @@ export default function App() {
 
   // Authentication & Inactivity Guard
   useEffect(() => {
+    if (localStorage.getItem('no_remember') === 'true') {
+      if (!sessionStorage.getItem('session_active')) {
+        localStorage.removeItem('student_id');
+        localStorage.removeItem('name');
+        localStorage.removeItem('session_token');
+        localStorage.removeItem('no_remember');
+      }
+    }
+    sessionStorage.setItem('session_active', 'true');
+
     const student_id = localStorage.getItem('student_id');
     const token = localStorage.getItem('session_token');
     const isAuthenticated = student_id !== null && token !== null;

@@ -8,8 +8,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [errorModal, setErrorModal] = useState<{show: boolean, message: string}>({show: false, message: ''});
-
+  
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -33,20 +34,40 @@ export default function Login() {
 
       const contentType = response.headers.get('content-type') || '';
       const isJson = contentType.includes('application/json');
-      const payload = isJson ? await response.json() : null;
+      
+      let payload = null;
+      try {
+        payload = isJson ? await response.json() : await response.text();
+      } catch (e) {
+        payload = null;
+      }
 
       if (response.ok && payload?.message === 'Login successful') {
         setStatus('Login successful!');
         localStorage.setItem('student_id', payload.student_id);
         localStorage.setItem('name', payload.name);
         if (payload.session_token) localStorage.setItem('session_token', payload.session_token);
+        
+        if (!rememberMe) {
+            localStorage.setItem('no_remember', 'true');
+            sessionStorage.setItem('session_active', 'true');
+        } else {
+            localStorage.removeItem('no_remember');
+        }
+        
         navigate('/', { replace: true });
         return;
       }
 
       setStatus(null); // Clear loading status
-      if (isJson && payload?.error) {
-        setErrorModal({ show: true, message: payload.error });
+      if (payload) {
+        let errorMsg = '';
+        if (typeof payload === 'object') {
+          errorMsg = payload.error || payload.detail || "Invalid login credentials.";
+        } else {
+          errorMsg = `Backend error (${response.status}): ${payload}`;
+        }
+        setErrorModal({ show: true, message: errorMsg });
       } else {
         setErrorModal({ show: true, message: `Backend error (${response.status}). Check API_URL: ${API_URL}` });
       }
@@ -138,6 +159,19 @@ export default function Login() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+            </div>
+            
+            <div className="flex items-center gap-2 mt-2">
+                <input 
+                    type="checkbox" 
+                    id="rememberMe" 
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 accent-green-700 cursor-pointer"
+                />
+                <label htmlFor="rememberMe" className="text-xs font-black uppercase text-gray-500 tracking-wider cursor-pointer">
+                    Remember Me
+                </label>
             </div>
           </div>
 

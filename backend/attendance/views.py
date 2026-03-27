@@ -39,15 +39,18 @@ def get_effective_hours(start_dt, end_dt):
 
 def format_hrs_mins(decimal_hours):
     if decimal_hours <= 0:
-        return "0 HRS"
+        return "0 h 0 min"
     hrs = int(decimal_hours)
     mins = int(round((decimal_hours - hrs) * 60))
+    if mins == 60:
+        hrs += 1
+        mins = 0
     if hrs > 0 and mins > 0:
-        return f"{hrs} hrs and {mins} mins"
+        return f"{hrs} h {mins} min"
     elif hrs > 0:
-        return f"{hrs} hrs"
+        return f"{hrs} h 0 min"
     else:
-        return f"{mins} mins"
+        return f"0 h {mins} min"
 
 
 def normalize_shift_times(am_in_obj, am_out_obj, pm_in_obj, pm_out_obj):
@@ -409,8 +412,14 @@ def get_history(request):
         last_out = fmt(r.pm_time_out) if r.pm_time_out else fmt(r.am_time_out)
 
         # Status
-        if r.am_time_in and r.am_time_out and r.pm_time_in and r.pm_time_out:
+        am_complete = bool(r.am_time_in and r.am_time_out)
+        pm_complete = bool(r.pm_time_in and r.pm_time_out)
+        
+        if am_complete and pm_complete:
             status = "Completed"
+        elif (am_complete and not r.pm_time_in and not r.pm_time_out) or \
+             (pm_complete and not r.am_time_in and not r.am_time_out):
+            status = "Half Day"
         elif r.am_time_in or r.pm_time_in:
             status = "Incomplete"
         else:

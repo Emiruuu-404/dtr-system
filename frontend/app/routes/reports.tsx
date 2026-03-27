@@ -217,9 +217,9 @@ export default function Reports() {
                 Total Progress
               </p>
               <p className="font-black text-green-700 text-2xl">
-                {totalHours}{' '}
+                {reportData?.formatted_total_hours || "0 h 0 min"}{' '}
                 <span className="text-sm text-gray-500">
-                  / {totalRequired} Hrs
+                  / {totalRequired} h
                 </span>
               </p>
             </div>

@@ -73,7 +73,9 @@ export default function Dashboard() {
                                     <div className="h-6 w-12 bg-gray-200 animate-pulse mb-1"></div>
                                 </div>
                             ) : (
-                                <h2 className="text-4xl font-black text-green-700">{statusData?.total_hours ?? 0} <span className="text-xl font-bold text-gray-400">/ {statusData?.total_required ?? 486}</span></h2>
+                                <h2 className="text-4xl font-black text-green-700">
+                                    {statusData?.formatted_total_hours || "0 h 0 min"} <span className="text-xl font-bold text-gray-400">/ {statusData?.total_required ?? 486} h</span>
+                                </h2>
                             )}
                         </div>
                         <div className="w-14 h-14 bg-green-100 flex items-center justify-center border-2 border-green-900 shrink-0">
@@ -187,35 +189,45 @@ export default function Dashboard() {
                         </p>
                         
                         {(() => {
-                            const isFullyRecorded = statusData?.today_logs?.length === 2 && statusData.today_logs.every((l: any) => l.in && l.in !== "--:--" && l.out && l.out !== "--:--");
+                            const amComplete = statusData?.today_logs?.[0]?.in && statusData.today_logs[0].in !== "--:--" && statusData.today_logs[0].out && statusData.today_logs[0].out !== "--:--";
+                            const pmComplete = statusData?.today_logs?.[1]?.in && statusData.today_logs[1].in !== "--:--" && statusData.today_logs[1].out && statusData.today_logs[1].out !== "--:--";
+                            
+                            const now = new Date();
+                            const isAfternoonOpen = now.getHours() >= 12;
+                            
+                            const isFullyRecorded = amComplete && pmComplete;
+                            
+                            const disableAm = amComplete;
+                            const disablePm = !amComplete || !isAfternoonOpen || pmComplete;
+                            const disableSubmit = loading || isFullyRecorded || (amComplete && !isAfternoonOpen);
                             
                             return (
                                 <>
                                     <div className="grid grid-cols-2 gap-3 mb-4">
-                                        <div>
+                                        <div className={disableAm ? "opacity-60" : ""}>
                                             <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Morning In</label>
-                                            <input type="time" name="am_in" max="12:00" disabled={isFullyRecorded} defaultValue={formatTimeForInput(statusData.today_logs?.[0]?.in)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50" />
+                                            <input type="time" name="am_in" max="12:00" disabled={disableAm} defaultValue={formatTimeForInput(statusData.today_logs?.[0]?.in)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50 disabled:bg-gray-100" />
                                         </div>
-                                        <div>
+                                        <div className={disableAm ? "opacity-60" : ""}>
                                             <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Morning Out</label>
-                                            <input type="time" name="am_out" max="13:00" disabled={isFullyRecorded} defaultValue={formatTimeForInput(statusData.today_logs?.[0]?.out)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50" />
+                                            <input type="time" name="am_out" max="13:00" disabled={disableAm} defaultValue={formatTimeForInput(statusData.today_logs?.[0]?.out)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50 disabled:bg-gray-100" />
                                         </div>
-                                        <div>
+                                        <div className={disablePm ? "opacity-50 grayscale pointer-events-none" : ""}>
                                             <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Afternoon In</label>
-                                            <input type="time" name="pm_in" min="12:01" disabled={isFullyRecorded} defaultValue={formatTimeForInput(statusData.today_logs?.[1]?.in)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50" />
+                                            <input type="time" name="pm_in" min="12:01" disabled={disablePm} defaultValue={formatTimeForInput(statusData.today_logs?.[1]?.in)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50 disabled:bg-gray-100" />
                                         </div>
-                                        <div>
+                                        <div className={disablePm ? "opacity-50 grayscale pointer-events-none" : ""}>
                                             <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Afternoon Out</label>
-                                            <input type="time" name="pm_out" min="12:01" disabled={isFullyRecorded} defaultValue={formatTimeForInput(statusData.today_logs?.[1]?.out)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50" />
+                                            <input type="time" name="pm_out" min="12:01" disabled={disablePm} defaultValue={formatTimeForInput(statusData.today_logs?.[1]?.out)} className="w-full p-2 font-bold text-gray-900 border-2 border-green-900 focus:outline-none focus:bg-green-50 text-sm disabled:opacity-50 disabled:bg-gray-100" />
                                         </div>
                                     </div>
                                     <button
                                         type="submit"
-                                        disabled={loading || isFullyRecorded}
+                                        disabled={disableSubmit}
                                         className="bg-green-700 w-full text-white p-4 border-2 border-green-900 hover:bg-green-800 transition-colors flex items-center justify-center font-black text-sm uppercase tracking-widest active:translate-x-1 active:translate-y-1 relative disabled:opacity-50 disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:hover:bg-green-700 disabled:cursor-not-allowed"
                                     >
                                         <span className="absolute inset-0 bg-green-900 -z-10 translate-x-1 translate-y-1 hidden"></span>
-                                        {isFullyRecorded ? "ALL PUNCHES RECORDED" : "RECORD TIME"}
+                                        {isFullyRecorded ? "ALL PUNCHES RECORDED" : !amComplete ? "RECORD MORNING SHIFT" : !isAfternoonOpen ? "AFTERNOON OPENS AT 12 PM" : "RECORD AFTERNOON SHIFT"}
                                     </button>
                                 </>
                             );
