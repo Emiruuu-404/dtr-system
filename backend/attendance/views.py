@@ -263,7 +263,8 @@ def get_leaderboards(request):
         leaderboard_data.append({
             "id": intern.id,
             "name": intern.name,
-            "hours": total_hours
+            "hours": total_hours,
+            "formatted_hours": format_hrs_mins(total_hours)
         })
         
     # Sort by descending hours
@@ -1280,6 +1281,7 @@ def get_admin_dashboard(request):
             "name": intern.name,
             "course": getattr(intern, 'course', 'N/A'),
             "total_hours": total_hours,
+            "formatted_total_hours": format_hrs_mins(total_hours),
             "status_today": status_today,
             "is_active": intern.is_active
         })
@@ -1368,7 +1370,7 @@ def admin_export_csv(request):
     response['Content-Disposition'] = 'attachment; filename="intern_master_roster.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(['Student ID', 'Name', 'Email', 'Active Status', 'Total Hours', 'Remaining Hours (of 486)'])
+    writer.writerow(['Student ID', 'Name', 'Email', 'Active Status', 'Total Hours', 'Total Hours (Formatted)', 'Remaining Hours (of 486)', 'Remaining Hours (Formatted)'])
 
     interns = Intern.objects.filter(is_staff=False)
     for intern in interns:
@@ -1383,7 +1385,9 @@ def admin_export_csv(request):
             intern.email,
             "Active" if intern.is_active else "Deactivated",
             total_hours,
-            round(remaining, 2)
+            format_hrs_mins(total_hours),
+            round(remaining, 2),
+            format_hrs_mins(remaining)
         ])
 
     return response

@@ -81,7 +81,7 @@ export default function Leaderboards() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="font-black text-xl text-green-900">{user.hours}</div>
+                                    <div className="font-black text-xl text-green-900">{user.formatted_hours || user.hours}</div>
                                     {isTop3 && <Icon size={24} strokeWidth={3} className={iconColor} />}
                                 </div>
                             </div>

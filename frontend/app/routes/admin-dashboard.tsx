@@ -439,8 +439,8 @@ export default function AdminDashboard() {
                                                 {intern.status_today}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-green-900 font-black text-lg">
-                                            {intern.total_hours} <span className="text-gray-400 text-sm">hrs</span>
+                                        <td className="px-6 py-4 text-green-900 font-black text-lg shrink-0 w-fit">
+                                            {intern.formatted_total_hours || intern.total_hours}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="w-full bg-gray-200 h-4 border-2 border-green-900">
@@ -480,7 +480,7 @@ export default function AdminDashboard() {
                                     {selectedIntern.name}
                                     {!selectedIntern.is_active && <span className="bg-rose-100 text-rose-800 border-2 border-rose-900 px-2 py-0.5 text-xs">OFFLINE</span>}
                                 </h2>
-                                <p className="text-green-700 font-bold uppercase tracking-widest text-sm mt-1">{selectedIntern.student_id} • {(selectedIntern.total_hours || 0).toFixed(2)} Hrs Rendered</p>
+                                <p className="text-green-700 font-bold uppercase tracking-widest text-sm mt-1">{selectedIntern.student_id} • {selectedIntern.formatted_total_hours || selectedIntern.total_hours} Rendered</p>
                             </div>
                             <button 
                                 onClick={() => setSelectedIntern(null)}
