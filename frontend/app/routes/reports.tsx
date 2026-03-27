@@ -216,9 +216,9 @@ export default function Reports() {
               <p className="font-black text-gray-600 text-xs uppercase tracking-widest">
                 Total Progress
               </p>
-              <p className="font-black text-green-700 text-2xl">
-                {reportData?.formatted_total_hours || "0 h 0 min"}{' '}
-                <span className="text-sm text-gray-500">
+              <p className="font-black text-green-700 text-xl sm:text-2xl flex items-baseline gap-1 whitespace-nowrap">
+                <span>{reportData?.formatted_total_hours || "0 h 0 min"}</span>
+                <span className="text-[10px] sm:text-sm font-bold text-gray-400">
                   / {totalRequired} h
                 </span>
               </p>

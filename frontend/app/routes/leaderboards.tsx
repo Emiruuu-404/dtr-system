@@ -71,18 +71,18 @@ export default function Leaderboards() {
 
                         return (
                             <div key={user.id} className={`p-4 border-2 border-green-900 flex items-center justify-between ${bgColor} shadow-[4px_4px_0px_0px_rgba(20,83,45,1)] transition-transform hover:-translate-y-1`}>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 border-2 border-green-900 bg-white flex items-center justify-center font-black text-green-900 shadow-[2px_2px_0px_0px_rgba(20,83,45,1)]">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className="w-10 h-10 border-2 border-green-900 bg-white flex items-center justify-center font-black text-green-900 shadow-[2px_2px_0px_0px_rgba(20,83,45,1)] shrink-0">
                                         #{user.rank}
                                     </div>
-                                    <div>
-                                        <h3 className="font-black text-gray-900 uppercase tracking-wide">{user.name}</h3>
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="font-black text-gray-900 uppercase tracking-wide truncate text-sm sm:text-base">{user.name}</h3>
                                         <p className="font-bold text-gray-600 text-[10px] tracking-widest uppercase">Hours Rendered</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="font-black text-xl text-green-900">{user.formatted_hours || user.hours}</div>
-                                    {isTop3 && <Icon size={24} strokeWidth={3} className={iconColor} />}
+                                <div className="flex items-center gap-2 shrink-0 ml-2">
+                                    <div className="font-black text-base text-green-900 whitespace-nowrap text-right">{user.formatted_hours || user.hours}</div>
+                                    {isTop3 && <Icon size={20} strokeWidth={3} className={`${iconColor} shrink-0`} />}
                                 </div>
                             </div>
                         );

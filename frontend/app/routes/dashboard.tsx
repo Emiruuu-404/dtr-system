@@ -73,8 +73,9 @@ export default function Dashboard() {
                                     <div className="h-6 w-12 bg-gray-200 animate-pulse mb-1"></div>
                                 </div>
                             ) : (
-                                <h2 className="text-4xl font-black text-green-700">
-                                    {statusData?.formatted_total_hours || "0 h 0 min"} <span className="text-xl font-bold text-gray-400">/ {statusData?.total_required ?? 486} h</span>
+                                <h2 className="text-xl sm:text-2xl font-black text-green-700 leading-none flex items-baseline gap-1 whitespace-nowrap">
+                                    <span>{statusData?.formatted_total_hours || "0 h 0 min"}</span>
+                                    <span className="text-xs sm:text-base font-bold text-gray-400">/ {statusData?.total_required ?? 486} h</span>
                                 </h2>
                             )}
                         </div>
