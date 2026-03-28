@@ -15,7 +15,8 @@ from attendance.views import (
     delete_report, get_report_image, upload_dtr, verify_session, 
     get_admin_dashboard, admin_intern_actions, admin_export_csv, 
     upload_profile_picture, get_profile_picture_view, get_chat_messages, 
-    send_chat_message, get_chat_users, get_intern_dashboard_data
+    send_chat_message, get_chat_users, get_intern_dashboard_data,
+    mark_chat_read, update_typing_status
 )
 
 def home(request):
@@ -57,6 +58,8 @@ urlpatterns =[
     path('api/chat/messages/', get_chat_messages),
     path('api/chat/send/', send_chat_message),
     path('api/chat/users/', get_chat_users),
+    path('api/chat/mark-read/', mark_chat_read),
+    path('api/chat/typing/', update_typing_status),
 
     path('api/upload-dtr/', upload_dtr, name='upload_dtr'),
     path('api/verify-session/', verify_session),

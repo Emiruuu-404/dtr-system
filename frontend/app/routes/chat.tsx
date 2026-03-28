@@ -9,6 +9,9 @@ interface ChatUser {
   student_id: string;
   is_staff: boolean;
   profile_picture: string | null;
+  unread_count?: number;
+  is_typing?: boolean;
+  is_online?: boolean;
 }
 
 interface Message {
@@ -39,17 +42,25 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentUserStudentId = typeof window !== 'undefined' ? localStorage.getItem('student_id') : null;
   const currentUserName = typeof window !== 'undefined' ? localStorage.getItem('name') : null;
+  
+  const isCommunityMode = searchParams.get("mode") === "community";
+  const isChatActive = !!selectedUser || isCommunityMode;
+
+  const [communityStatus, setCommunityStatus] = useState({ is_typing: false });
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchUsers = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/api/chat/users/?search=${searchTerm}`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem('token')}`
+          "Authorization": `Bearer ${localStorage.getItem('session_token')}`
         }
       });
       if (response.ok) {
         const data = await response.json();
-        setUsers(data);
+        setUsers(data.users || []);
+        setCommunityStatus(data.community || { is_typing: false });
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -62,7 +73,7 @@ export default function Chat() {
     try {
       const response = await fetch(`${API_URL}/api/chat/messages/`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem('token')}`
+          "Authorization": `Bearer ${localStorage.getItem('session_token')}`
         }
       });
       if (response.ok) {
@@ -99,14 +110,65 @@ export default function Chat() {
     }
   }, [userIdParam, users]);
 
+  const markAsRead = useCallback(async (senderId: number) => {
+    try {
+      await fetch(`${API_URL}/api/chat/mark-read/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem('session_token')}`
+        },
+        body: JSON.stringify({ sender_id: senderId }),
+      });
+    } catch (error) {
+      console.error("Error marking read:", error);
+    }
+  }, []);
+
   useEffect(() => {
     setIsInitialLoad(true);
     fetchMessages();
+    if (selectedUser) {
+        markAsRead(selectedUser.id);
+    }
 
-    // Set up polling interval that recognizes the current selectedUser
-    const interval = setInterval(fetchMessages, 3000);
+    // Faster polling: 1.5 seconds instead of 3
+    const interval = setInterval(() => {
+        fetchMessages();
+        fetchUsers();
+    }, 1500);
     return () => clearInterval(interval);
-  }, [selectedUser, fetchMessages]);
+  }, [selectedUser, fetchMessages, fetchUsers, markAsRead]);
+
+  // Typing logic
+  const sendTypingStatus = async (typingTo: number | null | 0) => {
+    try {
+      await fetch(`${API_URL}/api/chat/typing/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem('session_token')}`
+        },
+        body: JSON.stringify({ is_typing_to: typingTo }),
+      });
+    } catch {}
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    
+    if (!isTyping) {
+      setIsTyping(true);
+      sendTypingStatus(selectedUser?.id || 0);
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      sendTypingStatus(null);
+    }, 3000);
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -136,7 +198,7 @@ export default function Chat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem('token')}`
+          "Authorization": `Bearer ${localStorage.getItem('session_token')}`
         },
         body: JSON.stringify({
           content: newMessage,
@@ -163,7 +225,7 @@ export default function Chat() {
       {/* Header */}
       <div className="bg-white border-b-2 border-green-900 px-4 py-3 flex items-center justify-between shadow-sm shrink-0">
         <div className="flex items-center gap-3">
-          {selectedUser ? (
+          {isChatActive ? (
             <button
               onClick={() => {
                 setSelectedUser(null);
@@ -178,10 +240,20 @@ export default function Chat() {
           )}
           <div>
             <h1 className="text-lg font-bold text-green-900 leading-tight">
-              {selectedUser ? selectedUser.name : "Interns Community Chat"}
+              {selectedUser ? selectedUser.name : (isCommunityMode ? "Interns Community Chat" : "Messages")}
             </h1>
             <p className="text-xs text-gray-500 font-medium">
-              {selectedUser ? (selectedUser.is_staff ? "Administrator" : "Intern") : "Group chat for all members"}
+              {selectedUser ? (
+                selectedUser.is_typing ? (
+                  <span className="text-green-600 animate-pulse font-bold">typing...</span>
+                ) : (selectedUser.is_staff ? "Administrator" : "Intern")
+              ) : (
+                isCommunityMode ? (
+                  communityStatus.is_typing ? (
+                    <span className="text-green-600 animate-pulse font-bold">someone is typing...</span>
+                  ) : "Group chat for all members"
+                ) : "Select a conversation"
+              )}
             </p>
           </div>
         </div>
@@ -196,7 +268,7 @@ export default function Chat() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* User Sidebar */}
         <div className={`
-          ${selectedUser && showUserList ? 'hidden md:flex' : 'flex'}
+          ${isChatActive && showUserList ? 'hidden md:flex' : 'flex'}
           flex-col w-full md:w-80 bg-white border-r border-gray-200 shrink-0
         `}>
           <div className="p-4 border-b border-gray-100">
@@ -218,16 +290,20 @@ export default function Chat() {
             <button
               onClick={() => {
                 setSelectedUser(null);
-                setSearchParams({}, { replace: true });
+                setSearchParams({ mode: 'community' }, { replace: true });
               }}
-              className={`w-full p-4 flex items-center gap-3 transition-colors hover:bg-green-50 border-l-4 ${!selectedUser ? 'bg-green-50 border-green-600' : 'border-transparent'}`}
+              className={`w-full p-4 flex items-center gap-3 transition-colors hover:bg-green-50 border-l-4 ${isCommunityMode && !selectedUser ? 'bg-green-50 border-green-600' : 'border-transparent'}`}
             >
               <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white">
                 <MessageSquare size={24} />
               </div>
-              <div className="text-left">
+              <div className="text-left flex-1">
                 <p className="font-bold text-gray-800 text-sm">Community Chat</p>
-                <p className="text-xs text-gray-500">Public group message</p>
+                <p className="text-xs text-gray-500">
+                  {communityStatus.is_typing ? (
+                    <span className="text-green-600 animate-pulse font-bold">Typing...</span>
+                  ) : "Public group message"}
+                </p>
               </div>
             </button>
 
@@ -255,12 +331,23 @@ export default function Chat() {
                         <User size={24} />
                       </div>
                     )}
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                    {user.is_online && (
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                    )}
                   </div>
-                  <div className="text-left overflow-hidden">
+                  <div className="text-left flex-1 overflow-hidden">
                     <p className="font-bold text-gray-800 text-sm truncate">{user.name}</p>
-                    <p className="text-xs text-gray-500 truncate">{user.is_staff ? "Administrator" : user.student_id}</p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {user.is_typing ? (
+                        <span className="text-green-600 animate-pulse font-bold">Typing...</span>
+                      ) : (user.is_staff ? "Administrator" : user.student_id)}
+                    </p>
                   </div>
+                  {user.unread_count && user.unread_count > 0 && (
+                    <div className="bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+                      {user.unread_count}
+                    </div>
+                  )}
                 </button>
               ))
             ) : (
@@ -269,10 +356,9 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Chat Area */}
         <div className={`
           flex-1 flex flex-col bg-white
-          ${!selectedUser ? 'hidden md:flex' : 'flex'} 
+          ${!isChatActive ? 'hidden md:flex' : 'flex'} 
         `}>
           {/* Scrollable Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-1">
@@ -303,9 +389,16 @@ export default function Chat() {
                       }`}>
                       {msg.content}
                     </div>
-                    <span className="text-[10px] text-gray-400 mt-1 px-1">
-                      {formatTime(msg.timestamp)}
-                    </span>
+                    <div className="flex items-center gap-1 mt-1 px-1">
+                      <span className="text-[10px] text-gray-400">
+                        {formatTime(msg.timestamp)}
+                      </span>
+                      {isMe && selectedUser && (
+                        <span className={`text-[10px] font-bold ${msg.is_read ? "text-blue-500" : "text-gray-300"}`}>
+                          {msg.is_read ? "Seen" : "Sent"}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })
@@ -327,7 +420,7 @@ export default function Chat() {
               <input
                 type="text"
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={handleInputChange}
                 placeholder="Type a message..."
                 className="flex-1 bg-gray-50 border border-gray-200 rounded-full py-2.5 px-6 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-inner"
               />

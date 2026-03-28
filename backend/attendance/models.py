@@ -39,6 +39,10 @@ class Intern(AbstractBaseUser, PermissionsMixin):
     profile_picture_blob = models.BinaryField(null=True, blank=True)
     profile_picture_content_type = models.CharField(max_length=100, blank=True, default="")
     
+    # NEW: Status fields
+    is_typing_to = models.IntegerField(null=True, blank=True) # ID of user being typed to, or 0 for community
+    last_active = models.DateTimeField(auto_now=True)
+    
     objects = InternManager()
 
     USERNAME_FIELD = 'student_id'

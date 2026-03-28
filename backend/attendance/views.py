@@ -836,11 +836,33 @@ def download_dtr(request):
 @permission_classes([IsAuthenticated])
 def get_chat_messages(request):
     from django.db.models import Q
+    from django.utils import timezone
+    
+    # Update last active timestamp
+    request.user.save(update_fields=['last_active'])
+    
     messages = ChatMessage.objects.filter(
         Q(sender=request.user) | Q(receiver=request.user) | Q(receiver__isnull=True)
     ).order_by('timestamp')
     serializer = ChatMessageSerializer(messages, many=True)
     return Response(serializer.data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_chat_read(request):
+    sender_id = request.data.get('sender_id')
+    if sender_id:
+        # Mark private messages from this sender as read
+        ChatMessage.objects.filter(sender_id=sender_id, receiver=request.user, is_read=False).update(is_read=True)
+    return Response({"status": "success"})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_typing_status(request):
+    is_typing_to = request.data.get('is_typing_to') # can be user_id or 0 for community, null for none
+    request.user.is_typing_to = is_typing_to
+    request.user.save(update_fields=['is_typing_to', 'last_active'])
+    return Response({"status": "success"})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -936,10 +958,20 @@ def get_intern_dashboard_data(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_chat_users(request):
+    from django.db.models import Count, Q
+    from django.utils import timezone
+    from datetime import timedelta
+
     users = Intern.objects.filter(is_active=True).exclude(id=request.user.id)
     search = request.GET.get('search')
     if search:
         users = users.filter(name__icontains=search)
+    
+    # Typing threshold (if not updated in last 5 seconds, not typing anymore)
+    typing_threshold = timezone.now() - timedelta(seconds=6)
+    
+    # Community unread count (messages where receiver is null and sender is not current user and timestamp > user last logout - simplified: just count unread if we add that logic)
+    # For now, let's focus on private unread counts.
     
     data = []
     for user in users:
@@ -949,14 +981,32 @@ def get_chat_users(request):
         elif user.profile_picture:
             profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
             
+        unread_count = ChatMessage.objects.filter(sender=user, receiver=request.user, is_read=False).count()
+        
+        is_typing = False
+        if user.is_typing_to == request.user.id and user.last_active > typing_threshold:
+            is_typing = True
+
         data.append({
             "id": user.id,
             "name": user.name,
             "student_id": user.student_id,
             "is_staff": user.is_staff,
-            "profile_picture": profile_picture_url
+            "profile_picture": profile_picture_url,
+            "unread_count": unread_count,
+            "is_typing": is_typing,
+            "is_online": user.last_active > (timezone.now() - timedelta(minutes=5))
         })
-    return Response(data)
+    
+    # Community status
+    community_typing = Intern.objects.filter(is_typing_to=0, last_active__gt=typing_threshold).exclude(id=request.user.id).exists()
+    
+    return Response({
+        "users": data,
+        "community": {
+            "is_typing": community_typing
+        }
+    })
 
 
 @csrf_exempt
