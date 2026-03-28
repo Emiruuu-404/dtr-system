@@ -969,6 +969,8 @@ def get_chat_users(request):
     
     # Typing threshold (if not updated in last 5 seconds, not typing anymore)
     typing_threshold = timezone.now() - timedelta(seconds=6)
+    unread_counts = ChatMessage.objects.filter(receiver=request.user, is_read=False).values('sender').annotate(count=Count('sender'))
+    unread_dict = {item['sender']: item['count'] for item in unread_counts}
     
     # Community unread count (messages where receiver is null and sender is not current user and timestamp > user last logout - simplified: just count unread if we add that logic)
     # For now, let's focus on private unread counts.
@@ -981,7 +983,7 @@ def get_chat_users(request):
         elif user.profile_picture:
             profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
             
-        unread_count = ChatMessage.objects.filter(sender=user, receiver=request.user, is_read=False).count()
+        unread_count = unread_dict.get(user.id, 0)
         
         is_typing = False
         if user.is_typing_to == request.user.id and user.last_active > typing_threshold:
