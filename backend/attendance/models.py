@@ -36,6 +36,8 @@ class Intern(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     profile_picture = models.ImageField(upload_to="profiles/", null=True, blank=True)
+    profile_picture_blob = models.BinaryField(null=True, blank=True)
+    profile_picture_content_type = models.CharField(max_length=100, blank=True, default="")
     
     objects = InternManager()
 
@@ -98,3 +100,15 @@ class HistoryRecord(models.Model):
     hours = models.FloatField(default=0.0)
     status = models.CharField(max_length=50, default="Completed")
     created_at = models.DateTimeField(auto_now_add=True)
+
+class ChatMessage(models.Model):
+    sender = models.ForeignKey(Intern, on_delete=models.CASCADE, related_name='sent_messages')
+    receiver = models.ForeignKey(Intern, on_delete=models.CASCADE, related_name='received_messages', null=True, blank=True)
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+
+    def __str__(self):
+        sender_name = self.sender.name if self.sender else "Unknown"
+        receiver_name = self.receiver.name if self.receiver else "General"
+        return f"From {sender_name} to {receiver_name}: {self.content[:20]}"

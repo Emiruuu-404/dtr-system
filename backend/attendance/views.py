@@ -5,7 +5,8 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage
+from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, ChatMessage
+from .serializers import ChatMessageSerializer
 from django.contrib.auth.hashers import make_password, check_password
 import io
 from datetime import datetime, time, timedelta
@@ -261,7 +262,9 @@ def get_leaderboards(request):
         total_hours = round(total_hours, 2)
         
         profile_picture_url = None
-        if intern.profile_picture:
+        if intern.profile_picture_blob:
+            profile_picture_url = request.build_absolute_uri(f"/api/profile-picture/{intern.student_id}/")
+        elif intern.profile_picture:
             profile_picture_url = request.build_absolute_uri(intern.profile_picture.url)
 
         leaderboard_data.append({
@@ -381,7 +384,9 @@ def get_status(request):
         est_date_str = est.strftime("%b %d, %Y")
 
     profile_picture_url = None
-    if user.profile_picture:
+    if user.profile_picture_blob:
+        profile_picture_url = request.build_absolute_uri(f"/api/profile-picture/{user.student_id}/")
+    elif user.profile_picture:
         profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
 
     return JsonResponse({
@@ -827,6 +832,132 @@ def download_dtr(request):
     response = FileResponse(buffer, as_attachment=True, filename=filename, content_type='application/pdf')
     return response
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_chat_messages(request):
+    from django.db.models import Q
+    messages = ChatMessage.objects.filter(
+        Q(sender=request.user) | Q(receiver=request.user) | Q(receiver__isnull=True)
+    ).order_by('timestamp')
+    serializer = ChatMessageSerializer(messages, many=True)
+    return Response(serializer.data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_chat_message(request):
+    data = request.data
+    content = data.get('content')
+    receiver_id = data.get('receiver')
+
+    if not content:
+        return Response({"error": "Content is required"}, status=400)
+
+    receiver = None
+    if receiver_id:
+        try:
+            receiver = Intern.objects.get(id=receiver_id)
+        except Intern.DoesNotExist:
+            return Response({"error": "Receiver not found"}, status=404)
+
+    message = ChatMessage.objects.create(
+        sender=request.user,
+        receiver=receiver,
+        content=content
+    )
+    
+    serializer = ChatMessageSerializer(message)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_intern_dashboard_data(request):
+    from django.utils import timezone
+    from datetime import datetime
+    
+    intern = request.user
+    today = timezone.localtime().date()
+    
+    # Current user status
+    status = "Not Timed In"
+    try:
+        record = Attendance.objects.get(student_id=intern.student_id, date=today)
+        if record.pm_time_in and not record.pm_time_out:
+            status = "In (PM)"
+        elif record.am_time_in and not record.am_time_out:
+            status = "In (AM)"
+        elif record.pm_time_out:
+            status = "Timed Out (Full Day)"
+        elif record.am_time_out:
+            status = "Timed Out (AM)"
+    except Attendance.DoesNotExist:
+        pass
+
+    # Total hours
+    records = Attendance.objects.filter(student_id=intern.student_id)
+    total_hours = sum(get_effective_hours(r.am_time_in, r.am_time_out) + get_effective_hours(r.pm_time_in, r.pm_time_out) for r in records)
+    
+    # Online Interns (Timed in right now)
+    online_records = Attendance.objects.filter(
+        date=today
+    ).filter(
+        Q(am_time_in__isnull=False, am_time_out__isnull=True) | 
+        Q(pm_time_in__isnull=False, pm_time_out__isnull=True)
+    ).exclude(student_id=intern.student_id)
+    
+    online_interns = []
+    for r in online_records:
+        try:
+            other = Intern.objects.get(student_id=r.student_id)
+            if not other.is_active: continue
+            
+            pfp = None
+            if other.profile_picture_blob:
+                pfp = request.build_absolute_uri(f"/api/profile-picture/{other.student_id}/")
+            elif other.profile_picture:
+                pfp = request.build_absolute_uri(other.profile_picture.url)
+                
+            online_interns.append({
+                "id": other.id,
+                "name": other.name,
+                "student_id": other.student_id,
+                "profile_picture": pfp
+            })
+        except: continue
+
+    return Response({
+        "name": intern.name,
+        "student_id": intern.student_id,
+        "status": status,
+        "total_hours": round(total_hours, 2),
+        "formatted_hours": format_hrs_mins(total_hours),
+        "online_interns": online_interns
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_chat_users(request):
+    users = Intern.objects.filter(is_active=True).exclude(id=request.user.id)
+    search = request.GET.get('search')
+    if search:
+        users = users.filter(name__icontains=search)
+    
+    data = []
+    for user in users:
+        profile_picture_url = None
+        if user.profile_picture_blob:
+            profile_picture_url = request.build_absolute_uri(f"/api/profile-picture/{user.student_id}/")
+        elif user.profile_picture:
+            profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
+            
+        data.append({
+            "id": user.id,
+            "name": user.name,
+            "student_id": user.student_id,
+            "is_staff": user.is_staff,
+            "profile_picture": profile_picture_url
+        })
+    return Response(data)
+
 
 @csrf_exempt
 def forgot_password(request):
@@ -932,7 +1063,9 @@ def get_profile(request):
     try:
         user = Intern.objects.get(student_id=student_id)
         profile_picture_url = None
-        if user.profile_picture:
+        if user.profile_picture_blob:
+            profile_picture_url = request.build_absolute_uri(f"/api/profile-picture/{user.student_id}/")
+        elif user.profile_picture:
             profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
             
         return JsonResponse({
@@ -958,17 +1091,43 @@ def upload_profile_picture(request):
 
     try:
         user = Intern.objects.get(student_id=student_id)
+        
+        # PERSIST: save to file AND postgres blob fields
         user.profile_picture = image
+        user.profile_picture_content_type = getattr(image, "content_type", "") or "image/jpeg"
+        image_bytes = image.read()
+        user.profile_picture_blob = image_bytes
         user.save()
         
-        profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
+        # Prefer generating a BLOB based URL that works everywhere (local/render)
+        profile_picture_url = request.build_absolute_uri(f"/api/profile-picture/{user.student_id}/")
+
         return JsonResponse({
             "message": "Profile picture uploaded successfully",
             "profile_picture": profile_picture_url
         })
     except Intern.DoesNotExist:
         return JsonResponse({"error": "Account not found"}, status=404)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_profile_picture_view(request, student_id):
+    try:
+        user = Intern.objects.get(student_id=student_id)
+    except Intern.DoesNotExist:
+        raise Http404("Account not found")
 
+    if user.profile_picture_blob:
+        content_type = user.profile_picture_content_type or "image/jpeg"
+        return HttpResponse(bytes(user.profile_picture_blob), content_type=content_type)
+
+    if user.profile_picture:
+        try:
+            inferred = mimetypes.guess_type(user.profile_picture.name)[0] or "image/jpeg"
+            return FileResponse(user.profile_picture.open("rb"), content_type=inferred)
+        except Exception:
+            raise Http404("Internal image file not found")
+        
+    raise Http404("No profile picture found")
 
 @csrf_exempt
 def submit_report(request):
@@ -1317,7 +1476,9 @@ def get_admin_dashboard(request):
                 status_today = "PM OUT"
         
         profile_picture_url = None
-        if intern.profile_picture:
+        if intern.profile_picture_blob:
+            profile_picture_url = request.build_absolute_uri(f"/api/profile-picture/{intern.student_id}/")
+        elif intern.profile_picture:
             profile_picture_url = request.build_absolute_uri(intern.profile_picture.url)
 
         intern_list.append({

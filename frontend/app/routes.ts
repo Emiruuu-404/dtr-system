@@ -46,6 +46,10 @@ export default [
         file: "./routes/admin-login.tsx",
     },
     {
+        path: "/chat",
+        file: "./routes/chat.tsx"
+    },
+    {
         path: "*",
         file: "./routes/catchall.tsx",
     },

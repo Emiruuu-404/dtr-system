@@ -7,7 +7,16 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from attendance.views import register, login_view, admin_login_view, time_in, time_out, get_status, get_history, add_past_record, edit_record, delete_record, download_dtr, get_leaderboards, save_today_record, forgot_password, change_password, update_profile, get_profile, submit_report, get_reports, edit_report, delete_report, get_report_image, upload_dtr, verify_session, get_admin_dashboard, admin_intern_actions, admin_export_csv, upload_profile_picture
+from attendance.views import (
+    register, login_view, admin_login_view, time_in, time_out, get_status, 
+    get_history, add_past_record, edit_record, delete_record, download_dtr, 
+    get_leaderboards, save_today_record, forgot_password, change_password, 
+    update_profile, get_profile, submit_report, get_reports, edit_report, 
+    delete_report, get_report_image, upload_dtr, verify_session, 
+    get_admin_dashboard, admin_intern_actions, admin_export_csv, 
+    upload_profile_picture, get_profile_picture_view, get_chat_messages, 
+    send_chat_message, get_chat_users, get_intern_dashboard_data
+)
 
 def home(request):
     return redirect('/login/')
@@ -42,10 +51,16 @@ urlpatterns =[
     path('api/reports/', get_reports),
     path('api/report-image/<int:image_id>/', get_report_image),
     path('api/upload-profile-picture/', upload_profile_picture),
+    path('api/profile-picture/<str:student_id>/', get_profile_picture_view),
     
-    # Inayos ang path na ito (tinanggal ang views.)
+    # Chat endpoints
+    path('api/chat/messages/', get_chat_messages),
+    path('api/chat/send/', send_chat_message),
+    path('api/chat/users/', get_chat_users),
+
     path('api/upload-dtr/', upload_dtr, name='upload_dtr'),
     path('api/verify-session/', verify_session),
+    path('api/dashboard-data/', get_intern_dashboard_data),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

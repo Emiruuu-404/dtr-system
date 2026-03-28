@@ -1,5 +1,5 @@
 import { NavLink } from "react-router";
-import { LayoutDashboard, Clock, Trophy, History, FileText, Settings } from "lucide-react";
+import { LayoutDashboard, Clock, Trophy, MessageSquare, History, FileText, Settings } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function Navbar() {
@@ -33,6 +33,10 @@ export default function Navbar() {
             <NavLink to="/leaderboards" className={(props) => `${navLinkClass(props)} tour-leaderboards`} {...tooltipProps("Check Intern Rankings")}>
                 <Trophy strokeWidth={3} size={18} />
                 <span className="text-[9px] font-black tracking-widest uppercase mt-0.5">Rank</span>
+            </NavLink>
+            <NavLink to="/chat" className={(props) => `${navLinkClass(props)} tour-chat`} {...tooltipProps("Chat with Interns/Admins")}>
+                <MessageSquare strokeWidth={3} size={18} />
+                <span className="text-[9px] font-black tracking-widest uppercase mt-0.5">Chat</span>
             </NavLink>
             <NavLink to="/history" className={(props) => `${navLinkClass(props)} tour-history`} {...tooltipProps("View & Edit History")}>
                 <History strokeWidth={3} size={18} />

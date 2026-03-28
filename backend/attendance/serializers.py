@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Intern
+from .models import Intern, ChatMessage
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -21,3 +21,13 @@ class InternSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = Intern.objects.create_user(**validated_data)
         return user
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source='sender.name', read_only=True)
+    sender_student_id = serializers.CharField(source='sender.student_id', read_only=True)
+    receiver_name = serializers.CharField(source='receiver.name', read_only=True, allow_null=True)
+    receiver_student_id = serializers.CharField(source='receiver.student_id', read_only=True, allow_null=True)
+
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'sender', 'sender_name', 'sender_student_id', 'receiver', 'receiver_name', 'receiver_student_id', 'content', 'timestamp', 'is_read']
