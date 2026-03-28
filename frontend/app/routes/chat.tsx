@@ -50,19 +50,13 @@ export default function Chat() {
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
-
-        // Initial auto-select from URL only if selectedUser is not yet set
-        if (userIdParam && !selectedUser) {
-          const found = data.find((u: any) => u.id.toString() === userIdParam);
-          if (found) setSelectedUser(found);
-        }
       }
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, userIdParam, selectedUser]);
+  }, [searchTerm]);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -96,6 +90,14 @@ export default function Chat() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Auto-select user from URL param (e.g. navigating from leaderboards)
+  useEffect(() => {
+    if (userIdParam && users.length > 0) {
+      const found = users.find((u) => u.id.toString() === userIdParam);
+      if (found) setSelectedUser(found);
+    }
+  }, [userIdParam, users]);
 
   useEffect(() => {
     setIsInitialLoad(true);
