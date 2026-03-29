@@ -809,8 +809,11 @@ def get_chat_messages(request):
     from django.db.models import Q
     from django.utils import timezone
     
-    # Update last active timestamp
-    request.user.save(update_fields=['last_active'])
+    # Efficiency: Only update last_active if it's more than 60 seconds old
+    # This prevents the server from doing a database write on every single poll request.
+    from datetime import timedelta
+    if not request.user.last_active or (timezone.now() - request.user.last_active).total_seconds() > 60:
+        request.user.save(update_fields=['last_active'])
     
     user_id = request.GET.get('user_id')
     mode = request.GET.get('mode')
@@ -839,8 +842,8 @@ def get_chat_messages(request):
             Q(sender=request.user) | Q(receiver=request.user) | Q(receiver__isnull=True)
         )
             
-    # Always ordered by latest first, then limit, then reverse for display
-    messages = messages.order_by('-timestamp')[:150]
+    # Return last 80 messages (reduced from 150 to improve speed on Render)
+    messages = messages.order_by('-timestamp')[:80]
     messages = sorted(messages, key=lambda x: x.timestamp)
     
     serializer = ChatMessageSerializer(messages, many=True)

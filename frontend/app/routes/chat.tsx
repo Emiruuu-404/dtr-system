@@ -148,9 +148,12 @@ export default function Chat() {
     }
 
     const interval = setInterval(() => {
-        fetchMessages();
-        fetchUsers();
-    }, 2000); // Relaxed interval to 2s for better server performance
+        // Only poll if the tab is visible to save server resources
+        if (document.visibilityState === 'visible') {
+            fetchMessages();
+            fetchUsers();
+        }
+    }, 3000); // Relaxed to 3s - much better for free-tier Render worker
     return () => clearInterval(interval);
   }, [selectedUser, isCommunityMode, fetchMessages, fetchUsers, markAsRead]);
 
