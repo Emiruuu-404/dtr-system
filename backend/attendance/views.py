@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, ChatMessage
+from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, ChatMessage, get_effective_hours
 from .serializers import ChatMessageSerializer
 from django.contrib.auth.hashers import make_password, check_password
 import io
@@ -16,27 +16,6 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-def get_effective_hours(start_dt, end_dt):
-    if not start_dt or not end_dt:
-        return 0
-
-    # Normalize to local time before computing durations and lunch overlap.
-    local_start = timezone.localtime(start_dt)
-    local_end = timezone.localtime(end_dt)
-    sec = (local_end - local_start).total_seconds()
-    if sec <= 0:
-        return 0
-
-    lunch_start = timezone.make_aware(datetime.combine(local_start.date(), time(12, 0)))
-    lunch_end = timezone.make_aware(datetime.combine(local_start.date(), time(13, 0)))
-
-    overlap_start = max(local_start, lunch_start)
-    overlap_end = min(local_end, lunch_end)
-    
-    if overlap_start < overlap_end:
-        sec -= (overlap_end - overlap_start).total_seconds()
-
-    return sec / 3600
 
 def format_hrs_mins(decimal_hours):
     if decimal_hours <= 0:
@@ -249,28 +228,13 @@ def time_out(request):
 
 
 
-from collections import defaultdict
-
 def get_leaderboards(request):
-    interns = Intern.objects.filter(is_staff=False, is_active=True).defer('profile_picture_blob')
+    # Performance Optimization: Use cached total_hours instead of recalculating in a loop
+    interns = Intern.objects.filter(is_staff=False, is_active=True).order_by('-total_hours').defer('profile_picture_blob')
     
     leaderboard_data = []
-    
-    # Optimize: Fetch all relevant attendance records in ONE query
-    student_ids = [i.student_id for i in interns]
-    all_attendance = Attendance.objects.filter(student_id__in=student_ids)
-    
-    attendance_by_student = defaultdict(list)
-    for record in all_attendance:
-        attendance_by_student[record.student_id].append(record)
-
     for intern in interns:
-        records = attendance_by_student.get(intern.student_id, [])
-        total_hours = 0
-        for r in records:
-            total_hours += get_effective_hours(r.am_time_in, r.am_time_out)
-            total_hours += get_effective_hours(r.pm_time_in, r.pm_time_out)
-        total_hours = round(total_hours, 2)
+        total_hours = round(intern.total_hours, 2)
         
         profile_picture_url = None
         if intern.profile_picture_blob:
@@ -338,16 +302,9 @@ def get_status(request):
         last_time_in = last_time.strftime("%I:%M %p")
     else:
         last_time_in = "--:--"
-
+    
     # ===== TOTAL HOURS =====
-    def compute_hours(r):
-        total = 0
-        total += get_effective_hours(r.am_time_in, r.am_time_out)
-        total += get_effective_hours(r.pm_time_in, r.pm_time_out)
-        return total
-
-    all_records = Attendance.objects.filter(student_id=student_id)
-    total_hours = round(sum(compute_hours(r) for r in all_records), 2)
+    total_hours = round(user.total_hours, 2)
 
     # ===== TODAY LOGS =====
     def fmt(t):
@@ -412,6 +369,9 @@ def get_status(request):
         "profile_picture": profile_picture_url
     })
 
+
+    intern.total_hours = total
+    intern.save(update_fields=['total_hours'])
 
 def fmt(t):
     return timezone.localtime(t).strftime("%I:%M %p") if t else "--:--"
@@ -1558,23 +1518,15 @@ def get_admin_dashboard(request):
     
     intern_list = []
     
-    # Optimize: Fetch all relevant attendance records in ONE query
-    all_attendance = Attendance.objects.filter(student_id__in=[i.student_id for i in interns])
-    attendance_by_student = defaultdict(list)
-    for record in all_attendance:
-        attendance_by_student[record.student_id].append(record)
+    # We still need attendance maps for the "Status Today" badges
+    all_today_attendance = Attendance.objects.filter(date=today, student_id__in=[i.student_id for i in interns])
+    today_map = {r.student_id: r for r in all_today_attendance}
 
     for intern in interns:
-        records_list = attendance_by_student.get(intern.student_id, [])
-        total_hours = 0
-        for r in records_list:
-            total_hours += get_effective_hours(r.am_time_in, r.am_time_out)
-            total_hours += get_effective_hours(r.pm_time_in, r.pm_time_out)
-        total_hours = round(total_hours, 2)
+        total_hours = round(intern.total_hours, 2)
         
         # Determine status today
-        # today_record = records.filter(date=today).first() - Optimized to search local list
-        today_record = next((r for r in records_list if r.date == today), None)
+        today_record = today_map.get(intern.student_id)
         status_today = "Not Timed In"
         if today_record:
             if today_record.am_time_in and not today_record.am_time_out:

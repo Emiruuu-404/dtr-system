@@ -1,4 +1,9 @@
 from django.db import models
+from django.utils import timezone
+from datetime import datetime, time, timedelta
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.db.models import Q
 
 
 class Student(models.Model):
@@ -42,6 +47,7 @@ class Intern(AbstractBaseUser, PermissionsMixin):
     # NEW: Status fields
     is_typing_to = models.IntegerField(null=True, blank=True) # ID of user being typed to, or 0 for community
     last_active = models.DateTimeField(auto_now=True)
+    total_hours = models.FloatField(default=0.0) # Cached total hours for performance
     
     objects = InternManager()
 
@@ -62,6 +68,47 @@ class Attendance(models.Model):
 
     def __str__(self):
         return f"{self.student_id} - {self.date}"
+
+def get_effective_hours(start_dt, end_dt):
+    if not start_dt or not end_dt:
+        return 0
+
+    # Normalize to local time before computing durations and lunch overlap.
+    local_start = timezone.localtime(start_dt)
+    local_end = timezone.localtime(end_dt)
+    sec = (local_end - local_start).total_seconds()
+    if sec <= 0:
+        return 0
+
+    lunch_start = timezone.make_aware(datetime.combine(local_start.date(), time(12, 0)))
+    lunch_end = timezone.make_aware(datetime.combine(local_start.date(), time(13, 0)))
+
+    overlap_start = max(local_start, lunch_start)
+    overlap_end = min(local_end, lunch_end)
+    
+    if overlap_start < overlap_end:
+        sec -= (overlap_end - overlap_start).total_seconds()
+
+    return sec / 3600
+
+@receiver([post_save, post_delete], sender=Attendance)
+def update_intern_hours(sender, instance, **kwargs):
+    # Logic to update cached hours for the intern
+    # Use a direct query to avoid recursive signals if we were saving attendance, but we save Intern
+    Intern = models.get_model('attendance', 'Intern') if not hasattr(sender, 'Intern') else None # Careful with imports
+    # Better: just import inside the function
+    from .models import Intern
+    try:
+        intern = Intern.objects.get(student_id=instance.student_id)
+        records = Attendance.objects.filter(student_id=instance.student_id)
+        total = 0
+        for r in records:
+            total += get_effective_hours(r.am_time_in, r.am_time_out)
+            total += get_effective_hours(r.pm_time_in, r.pm_time_out)
+        intern.total_hours = total
+        intern.save(update_fields=['total_hours'])
+    except:
+        pass
 
 
 class AccomplishmentReport(models.Model):
