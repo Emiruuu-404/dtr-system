@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Trophy, Medal, Star, MessageSquare } from "lucide-react";
+import { Trophy, Medal, Star } from "lucide-react";
 import { API_URL } from "../config";
 import { useNavigate } from "react-router";
 
@@ -95,16 +95,6 @@ export default function Leaderboards() {
                                             <span className="text-[10px] font-black uppercase text-gray-400">Hours</span>
                                         </div>
                                     </div>
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate(`/chat?userId=${user.id}`);
-                                        }}
-                                        className="p-2 bg-white text-green-900 border-2 border-green-900 shadow-[2px_2px_0px_0px_rgba(20,83,45,1)] hover:bg-green-50 transition-transform active:translate-y-1 active:shadow-none"
-                                        title={`Chat with ${user.name}`}
-                                    >
-                                        <MessageSquare size={16} strokeWidth={3} />
-                                    </button>
                                 </div>
                             </div>
                         );

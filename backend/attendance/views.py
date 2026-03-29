@@ -5,8 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, ChatMessage, get_effective_hours
-from .serializers import ChatMessageSerializer
+from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, get_effective_hours
 from django.contrib.auth.hashers import make_password, check_password
 import io
 from datetime import datetime, time, timedelta
@@ -331,8 +330,8 @@ def get_status(request):
             {"in": "--:--", "out": "--:--", "in_label": "PM IN", "out_label": "PM OUT"}
         ]
 
-    has_saturday = any(r.date.weekday() == 5 for r in all_records)
-    has_sunday = any(r.date.weekday() == 6 for r in all_records)
+    has_saturday = Attendance.objects.filter(student_id=student_id, date__week_day=7).exists()
+    has_sunday = Attendance.objects.filter(student_id=student_id, date__week_day=1).exists()
 
     # ===== ESTIMATED END DATE =====
     total_required = 486
@@ -369,9 +368,6 @@ def get_status(request):
         "profile_picture": profile_picture_url
     })
 
-
-    intern.total_hours = total
-    intern.save(update_fields=['total_hours'])
 
 def fmt(t):
     return timezone.localtime(t).strftime("%I:%M %p") if t else "--:--"
@@ -805,100 +801,6 @@ def download_dtr(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_chat_messages(request):
-    from django.db.models import Q
-    from django.utils import timezone
-    
-    # Efficiency: Only update last_active if it's more than 60 seconds old
-    # This prevents the server from doing a database write on every single poll request.
-    from datetime import timedelta
-    if not request.user.last_active or (timezone.now() - request.user.last_active).total_seconds() > 60:
-        request.user.save(update_fields=['last_active'])
-    
-    user_id = request.GET.get('user_id')
-    mode = request.GET.get('mode')
-    
-    # Base queryset with essential fields and optimized relations
-    base_qs = ChatMessage.objects.select_related('sender', 'receiver')
-    
-    if mode == 'community':
-        # ONLY public messages
-        messages = base_qs.filter(receiver__isnull=True)
-    elif user_id:
-        try:
-            other_id = int(user_id)
-            # ONLY private messages between me and the other user
-            messages = base_qs.filter(
-                (Q(sender=request.user) & Q(receiver_id=other_id)) |
-                (Q(sender_id=other_id) & Q(receiver=request.user))
-            )
-        except (ValueError, TypeError):
-            # Fallback if ID is invalid
-            messages = base_qs.filter(id__lt=0) 
-    else:
-        # No specific request? Return ONLY my messages and community for fallback, 
-        # but technically this branch should not be hit by the optimized frontend.
-        messages = base_qs.filter(
-            Q(sender=request.user) | Q(receiver=request.user) | Q(receiver__isnull=True)
-        )
-            
-    # Return last 80 messages (reduced from 150 to improve speed on Render)
-    messages = messages.order_by('-timestamp')[:80]
-    messages = sorted(messages, key=lambda x: x.timestamp)
-    
-    serializer = ChatMessageSerializer(messages, many=True)
-    return Response(serializer.data)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def mark_chat_read(request):
-    sender_id = request.data.get('sender_id')
-    if sender_id:
-        # Mark private messages from this sender as read
-        ChatMessage.objects.filter(sender_id=sender_id, receiver=request.user, is_read=False).update(is_read=True)
-    return Response({"status": "success"})
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def update_typing_status(request):
-    is_typing_to = request.data.get('is_typing_to') # can be user_id or 0 for community, null for none
-    request.user.is_typing_to = is_typing_to
-    request.user.save(update_fields=['is_typing_to', 'last_active'])
-    return Response({"status": "success"})
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def send_chat_message(request):
-    data = request.data
-    content = data.get('content')
-    receiver_id = data.get('receiver')
-    is_community = data.get('is_community', False)
-
-    if not content:
-        return Response({"error": "Content is required"}, status=400)
-
-    receiver = None
-    if receiver_id:
-        try:
-            receiver = Intern.objects.get(id=receiver_id)
-        except Intern.DoesNotExist:
-            return Response({"error": "Receiver not found"}, status=404)
-    elif not is_community:
-        # If not community and no receiver, something is wrong with the selected user state
-        return Response({"error": "Receiver is required for private messages"}, status=400)
-
-    message = ChatMessage.objects.create(
-        sender=request.user,
-        receiver=receiver,
-        content=content
-    )
-    
-    serializer = ChatMessageSerializer(message)
-    return Response(serializer.data)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def get_intern_dashboard_data(request):
     from django.utils import timezone
     from datetime import datetime
@@ -921,118 +823,17 @@ def get_intern_dashboard_data(request):
     except Attendance.DoesNotExist:
         pass
 
-    # Total hours
-    records = Attendance.objects.filter(student_id=intern.student_id)
-    total_hours = sum(get_effective_hours(r.am_time_in, r.am_time_out) + get_effective_hours(r.pm_time_in, r.pm_time_out) for r in records)
+    # Total hours (Use cached field for performance)
+    total_hours = round(intern.total_hours, 2)
     
-    # Online Interns (Timed in right now)
-    online_records = Attendance.objects.filter(
-        date=today
-    ).filter(
-        Q(am_time_in__isnull=False, am_time_out__isnull=True) | 
-        Q(pm_time_in__isnull=False, pm_time_out__isnull=True)
-    ).exclude(student_id=intern.student_id)
-    
-    online_student_ids = [r.student_id for r in online_records]
-    online_intern_objs = Intern.objects.filter(student_id__in=online_student_ids, is_active=True).defer('profile_picture_blob')
-    
-    online_interns = []
-    for other in online_intern_objs:
-        pfp = None
-        if other.profile_picture_blob:
-            pfp = request.build_absolute_uri(f"/api/profile-picture/{other.student_id}/")
-        elif other.profile_picture:
-            pfp = request.build_absolute_uri(other.profile_picture.url)
-            
-        online_interns.append({
-            "id": other.id,
-            "name": other.name,
-            "student_id": other.student_id,
-            "profile_picture": pfp
-        })
-
     return Response({
         "name": intern.name,
         "student_id": intern.student_id,
         "status": status,
-        "total_hours": round(total_hours, 2),
-        "formatted_hours": format_hrs_mins(total_hours),
-        "online_interns": online_interns
+        "total_hours": total_hours,
+        "formatted_hours": format_hrs_mins(total_hours)
     })
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_chat_users(request):
-    from django.db.models import Count, Q
-    from django.utils import timezone
-    from datetime import timedelta
-
-    users = Intern.objects.filter(is_active=True).exclude(id=request.user.id).defer('profile_picture_blob')
-    search = request.GET.get('search')
-    selected_id = request.GET.get('selected_id')
-    
-    if search:
-        users = users.filter(name__icontains=search)
-    else:
-        # Optimization: Only show users with whom a conversation exists
-        msg_partners = ChatMessage.objects.filter(
-            Q(sender=request.user) | Q(receiver=request.user)
-        ).values_list('sender_id', 'receiver_id').distinct()
-        
-        active_ids = set()
-        for sid, rid in msg_partners:
-            if sid and sid != request.user.id: active_ids.add(sid)
-            if rid and rid != request.user.id: active_ids.add(rid)
-            
-        if selected_id:
-            try:
-                active_ids.add(int(selected_id))
-            except: pass
-            
-        users = users.filter(id__in=active_ids)
-    
-    # Typing threshold (if not updated in last 5 seconds, not typing anymore)
-    typing_threshold = timezone.now() - timedelta(seconds=6)
-    unread_counts = ChatMessage.objects.filter(receiver=request.user, is_read=False).values('sender').annotate(count=Count('sender'))
-    unread_dict = {item['sender']: item['count'] for item in unread_counts}
-    
-    # Community unread count (messages where receiver is null and sender is not current user and timestamp > user last logout - simplified: just count unread if we add that logic)
-    # For now, let's focus on private unread counts.
-    
-    data = []
-    for user in users:
-        profile_picture_url = None
-        if user.profile_picture_blob:
-            profile_picture_url = request.build_absolute_uri(f"/api/profile-picture/{user.student_id}/")
-        elif user.profile_picture:
-            profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
-            
-        unread_count = unread_dict.get(user.id, 0)
-        
-        is_typing = False
-        if user.is_typing_to == request.user.id and user.last_active > typing_threshold:
-            is_typing = True
-
-        data.append({
-            "id": user.id,
-            "name": user.name,
-            "student_id": user.student_id,
-            "is_staff": user.is_staff,
-            "profile_picture": profile_picture_url,
-            "unread_count": unread_count,
-            "is_typing": is_typing,
-            "is_online": user.last_active > (timezone.now() - timedelta(minutes=5))
-        })
-    
-    # Community status
-    community_typing = Intern.objects.filter(is_typing_to=0, last_active__gt=typing_threshold).exclude(id=request.user.id).exists()
-    
-    return Response({
-        "users": data,
-        "community": {
-            "is_typing": community_typing
-        }
-    })
 
 
 @csrf_exempt

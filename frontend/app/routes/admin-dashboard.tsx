@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, UserX, UserCheck, Clock, Search, AlertCircle, CheckCircle, MessageSquare } from "lucide-react";
+import { Users, UserX, UserCheck, Clock, Search, AlertCircle, CheckCircle } from "lucide-react";
 import { API_URL } from "../config";
 import { useNavigate } from "react-router";
 
@@ -319,12 +319,7 @@ export default function AdminDashboard() {
                     <p className="text-green-800 font-bold">Real-time attendance monitoring and intern progress</p>
                 </div>
                 <div className="flex gap-3 mt-1 object-right">
-                    <button 
-                        onClick={() => navigate("/chat")}
-                        className="bg-green-100 border-2 border-green-900 px-4 py-2 text-xs font-black uppercase text-green-900 tracking-widest hover:bg-green-200 transition-colors flex items-center gap-2"
-                    >
-                        <MessageSquare size={14} strokeWidth={3} /> Chat
-                    </button>
+
                     <button 
                         onClick={() => setShowAdminPwModal(true)}
                         className="bg-white border-2 border-green-900 px-4 py-2 text-xs font-black uppercase text-green-900 tracking-widest hover:bg-green-50 transition-colors"
@@ -511,12 +506,7 @@ export default function AdminDashboard() {
                                 <div className="flex-1 min-w-[300px]">
                                     <p className="text-xs font-black uppercase text-gray-500 mb-2 tracking-widest">Account Management</p>
                                     <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => navigate(`/chat?userId=${selectedIntern.id}`)}
-                                            className="flex-1 bg-green-900 border-2 border-green-900 text-white font-bold px-3 py-2 text-xs uppercase tracking-wider hover:bg-green-800"
-                                        >
-                                            Message
-                                        </button>
+
                                         <button 
                                             onClick={() => { setActionModal('reset_password'); setActionInput(''); }}
                                             disabled={actionLoading}

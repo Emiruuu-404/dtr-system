@@ -44,10 +44,8 @@ class Intern(AbstractBaseUser, PermissionsMixin):
     profile_picture_blob = models.BinaryField(null=True, blank=True)
     profile_picture_content_type = models.CharField(max_length=100, blank=True, default="")
     
-    # NEW: Status fields
-    is_typing_to = models.IntegerField(null=True, blank=True) # ID of user being typed to, or 0 for community
-    last_active = models.DateTimeField(auto_now=True)
-    total_hours = models.FloatField(default=0.0) # Cached total hours for performance
+    # NEW: Cached total hours for performance
+    total_hours = models.FloatField(default=0.0)
     
     objects = InternManager()
 
@@ -65,6 +63,13 @@ class Attendance(models.Model):
     am_time_out = models.DateTimeField(null=True, blank=True)
     pm_time_in = models.DateTimeField(null=True, blank=True)
     pm_time_out = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['student_id', 'date']),
+            models.Index(fields=['student_id']),
+            models.Index(fields=['date']),
+        ]
 
     def __str__(self):
         return f"{self.student_id} - {self.date}"
@@ -93,11 +98,6 @@ def get_effective_hours(start_dt, end_dt):
 
 @receiver([post_save, post_delete], sender=Attendance)
 def update_intern_hours(sender, instance, **kwargs):
-    # Logic to update cached hours for the intern
-    # Use a direct query to avoid recursive signals if we were saving attendance, but we save Intern
-    Intern = models.get_model('attendance', 'Intern') if not hasattr(sender, 'Intern') else None # Careful with imports
-    # Better: just import inside the function
-    from .models import Intern
     try:
         intern = Intern.objects.get(student_id=instance.student_id)
         records = Attendance.objects.filter(student_id=instance.student_id)
@@ -109,6 +109,7 @@ def update_intern_hours(sender, instance, **kwargs):
         intern.save(update_fields=['total_hours'])
     except:
         pass
+
 
 
 class AccomplishmentReport(models.Model):
@@ -151,15 +152,4 @@ class HistoryRecord(models.Model):
     hours = models.FloatField(default=0.0)
     status = models.CharField(max_length=50, default="Completed")
     created_at = models.DateTimeField(auto_now_add=True)
-
-class ChatMessage(models.Model):
-    sender = models.ForeignKey(Intern, on_delete=models.CASCADE, related_name='sent_messages')
-    receiver = models.ForeignKey(Intern, on_delete=models.CASCADE, related_name='received_messages', null=True, blank=True)
-    content = models.TextField()
-    timestamp = models.DateTimeField(auto_now_add=True)
-    is_read = models.BooleanField(default=False)
-
-    def __str__(self):
-        sender_name = self.sender.name if self.sender else "Unknown"
-        receiver_name = self.receiver.name if self.receiver else "General"
-        return f"From {sender_name} to {receiver_name}: {self.content[:20]}"
+
