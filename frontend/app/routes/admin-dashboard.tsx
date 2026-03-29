@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Users, UserX, UserCheck, Clock, Search, AlertCircle, CheckCircle } from "lucide-react";
+import { Users, UserX, UserCheck, Clock, Search, AlertCircle, CheckCircle, MessageSquare } from "lucide-react";
 import { API_URL } from "../config";
 import { useNavigate } from "react-router";
+import FastChat from "../components/FastChat";
 
 export default function AdminDashboard() {
     const [data, setData] = useState<any>(null);
@@ -12,6 +13,10 @@ export default function AdminDashboard() {
     const [internReports, setInternReports] = useState<any>(null);
     const [activeTab, setActiveTab] = useState("history");
     const [actionLoading, setActionLoading] = useState(false);
+    
+    // Chat state
+    const [chatTarget, setChatTarget] = useState<{ id: string, name: string } | null>(null);
+    const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
     
     // For custom action modals
     const [actionModal, setActionModal] = useState<string | null>(null);
@@ -59,6 +64,27 @@ export default function AdminDashboard() {
                 localStorage.removeItem("admin_token");
                 navigate("/admin/login");
             });
+
+        // Poll for unread count
+        const fetchUnread = async () => {
+            const token = localStorage.getItem("admin_token");
+            if (!token) return;
+            try {
+                const resp = await fetch(`${API_URL}/api/chat/unread/`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const d = await resp.json();
+                if (d.unread_count !== undefined) {
+                    // In this version, we'll just show a global unread count for now or implement per-user if backend supports it.
+                    // For now, let's just set a global unread state.
+                    setUnreadMap({ global: d.unread_count });
+                }
+            } catch (err) {}
+        };
+        fetchUnread();
+        const int = setInterval(fetchUnread, 10000);
+
+        return () => clearInterval(int);
     }, []);
 
     if (loading) {
@@ -483,12 +509,20 @@ export default function AdminDashboard() {
                                 </h2>
                                 <p className="text-green-700 font-bold uppercase tracking-widest text-sm mt-1">{selectedIntern.student_id} • {selectedIntern.formatted_total_hours || selectedIntern.total_hours} Rendered</p>
                             </div>
-                            <button 
-                                onClick={() => setSelectedIntern(null)}
-                                className="bg-gray-200 border-2 border-gray-400 font-black px-4 py-2 hover:bg-gray-300 uppercase text-gray-700 tracking-widest text-xs"
-                            >
-                                Close X
-                            </button>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setChatTarget({ id: selectedIntern.student_id, name: selectedIntern.name })}
+                                    className="bg-indigo-600 border-2 border-indigo-900 text-white font-black px-4 py-2 hover:bg-indigo-700 uppercase tracking-widest text-xs flex items-center gap-2"
+                                >
+                                    <MessageSquare size={16} /> Chat
+                                </button>
+                                <button 
+                                    onClick={() => setSelectedIntern(null)}
+                                    className="bg-gray-200 border-2 border-gray-400 font-black px-4 py-2 hover:bg-gray-300 uppercase text-gray-700 tracking-widest text-xs"
+                                >
+                                    Close X
+                                </button>
+                            </div>
                         </div>
                         
                         {/* Modal Body / Scrollable Content */}
@@ -836,6 +870,15 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                 </div>
+            )}
+            {/* Global Chat Modal */}
+            {chatTarget && (
+                <FastChat 
+                    peerId={chatTarget.id} 
+                    peerName={chatTarget.name} 
+                    isOpen={!!chatTarget} 
+                    onClose={() => setChatTarget(null)} 
+                />
             )}
         </div>
     );

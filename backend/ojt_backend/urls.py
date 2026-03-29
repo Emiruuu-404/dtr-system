@@ -15,7 +15,7 @@ from attendance.views import (
     delete_report, get_report_image, upload_dtr, verify_session, 
     get_admin_dashboard, admin_intern_actions, admin_export_csv, 
     upload_profile_picture, get_profile_picture_view, get_intern_dashboard_data,
-    ping_view
+    ping_view, admin_chat_send, admin_chat_history, admin_chat_unread
 )
 
 def home(request):
@@ -57,6 +57,9 @@ urlpatterns =[
     path('api/verify-session/', verify_session),
     path('api/dashboard-data/', get_intern_dashboard_data),
     path('api/ping/', ping_view),
+    path('api/chat/send/', admin_chat_send),
+    path('api/chat/history/', admin_chat_history),
+    path('api/chat/unread/', admin_chat_unread),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

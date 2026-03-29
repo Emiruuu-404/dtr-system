@@ -1487,3 +1487,64 @@ def admin_export_csv(request):
 @permission_classes([AllowAny])
 def ping_view(request):
     return Response({"status": "ok", "timestamp": timezone.now()})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def admin_chat_send(request):
+    data = request.data
+    sender_id = request.user.student_id or "admin" 
+    receiver_id = data.get("receiver_id")
+    message = data.get("message")
+
+    if not all([receiver_id, message]):
+        return Response({"error": "Missing fields"}, status=400)
+
+    # Simple restrict: if not staff, can only message 'admin'
+    if not request.user.is_staff and receiver_id != "admin":
+        return Response({"error": "Interns can only message admin"}, status=403)
+
+    msg = ChatMessage.objects.create(
+        sender_id=sender_id,
+        receiver_id=receiver_id,
+        message=message
+    )
+    return Response({"message": "Sent", "id": msg.id})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_chat_history(request):
+    peer_id = request.GET.get("peer_id")
+    if not peer_id:
+        return Response({"error": "Missing peer_id"}, status=400)
+
+    my_id = request.user.student_id or "admin"
+
+    # Restrict: if not staff, can only get history with 'admin'
+    if not request.user.is_staff and peer_id != "admin":
+        return Response({"error": "Unauthorized"}, status=403)
+
+    from django.db.models import Q
+    messages = ChatMessage.objects.filter(
+        (Q(sender_id=my_id) & Q(receiver_id=peer_id)) |
+        (Q(sender_id=peer_id) & Q(receiver_id=my_id))
+    ).order_by('timestamp')
+
+    # Optionally mark as read when fetching
+    ChatMessage.objects.filter(receiver_id=my_id, sender_id=peer_id, is_read=False).update(is_read=True)
+
+    data = [{
+        "id": m.id,
+        "sender": m.sender_id,
+        "content": m.message,
+        "timestamp": m.timestamp.isoformat(),
+        "is_own": m.sender_id == my_id
+    } for m in messages]
+
+    return Response({"messages": data})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_chat_unread(request):
+    my_id = request.user.student_id or "admin"
+    count = ChatMessage.objects.filter(receiver_id=my_id, is_read=False).count()
+    return Response({"unread_count": count})

@@ -152,4 +152,21 @@ class HistoryRecord(models.Model):
     hours = models.FloatField(default=0.0)
     status = models.CharField(max_length=50, default="Completed")
     created_at = models.DateTimeField(auto_now_add=True)
+
+class ChatMessage(models.Model):
+    sender_id = models.CharField(max_length=50) # student_id or "admin"
+    receiver_id = models.CharField(max_length=50)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['sender_id', 'receiver_id']),
+            models.Index(fields=['receiver_id', 'is_read']),
+        ]
+        ordering = ['timestamp']
+
+    def __str__(self):
+        return f"{self.sender_id} -> {self.receiver_id}: {self.message[:20]}"
 

@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { API_URL } from "../config";
-import { LayoutDashboard, Clock, UserCheck, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Clock, UserCheck, ChevronRight, MessageSquare } from "lucide-react";
+import FastChat from "../components/FastChat";
 
 export default function Home() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -32,6 +35,23 @@ export default function Home() {
             localStorage.removeItem("token");
             navigate("/login");
         });
+
+        // Poll for unread count
+        const fetchUnread = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+            try {
+                const resp = await fetch(`${API_URL}/api/chat/unread/`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const d = await resp.json();
+                if (d.unread_count !== undefined) setUnreadCount(d.unread_count);
+            } catch (err) {}
+        };
+        fetchUnread();
+        const int = setInterval(fetchUnread, 10000); // 10s check for unread when closed
+
+        return () => clearInterval(int);
     }, []);
 
     if (loading) {
@@ -96,6 +116,28 @@ export default function Home() {
                     <ChevronRight className="group-hover:translate-x-2 transition-transform" strokeWidth={4} />
                 </button>
             </div>
+
+            {/* FLOATING CHAT */}
+            <button
+                onClick={() => setIsChatOpen(true)}
+                className="fixed bottom-6 right-6 w-16 h-16 bg-white border-4 border-green-900 flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(20,83,45,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all z-50 rounded-full group"
+            >
+                <div className="relative">
+                    <MessageSquare size={32} className="text-green-900" strokeWidth={3} />
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-3 -right-3 bg-red-500 border-2 border-green-900 text-white text-[10px] w-6 h-6 rounded-full flex items-center justify-center font-black animate-bounce shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                            {unreadCount}
+                        </span>
+                    )}
+                </div>
+            </button>
+
+            <FastChat 
+                peerId="admin" 
+                peerName="Administrator" 
+                isOpen={isChatOpen} 
+                onClose={() => setIsChatOpen(false)} 
+            />
         </div>
     );
 }
