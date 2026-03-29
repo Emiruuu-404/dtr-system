@@ -9,11 +9,9 @@ export default function Leaderboards() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        Promise.all([
-            fetch(`${API_URL}/api/leaderboards/`).then(res => res.json()),
-            new Promise(resolve => setTimeout(resolve, 800))
-        ])
-            .then(([data]) => {
+        fetch(`${API_URL}/api/leaderboards/`)
+            .then(res => res.json())
+            .then((data) => {
                 if (data.leaderboard) {
                     setLeaderboard(data.leaderboard);
                 }

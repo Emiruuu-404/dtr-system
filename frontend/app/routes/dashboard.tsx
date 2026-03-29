@@ -12,13 +12,11 @@ export default function Dashboard() {
         const student_id = localStorage.getItem("student_id");
         if (!student_id) return;
 
-        // Ensure skeleton animation is visible for at least 800ms
-        Promise.all([
-            fetch(`${API_URL}/api/status/?student_id=${student_id}`).then(res => res.json()),
-            new Promise(resolve => setTimeout(resolve, 800))
-        ]).then(([data]) => {
-            setStatusData(data);
-        });
+        fetch(`${API_URL}/api/status/?student_id=${student_id}`)
+            .then(res => res.json())
+            .then((data) => {
+                setStatusData(data);
+            });
     };
     const formatTimeForInput = (timeStr: string) => {
         if (!timeStr || timeStr === "--:--") return "";
