@@ -997,8 +997,27 @@ def get_chat_users(request):
 
     users = Intern.objects.filter(is_active=True).exclude(id=request.user.id).defer('profile_picture_blob')
     search = request.GET.get('search')
+    selected_id = request.GET.get('selected_id')
+    
     if search:
         users = users.filter(name__icontains=search)
+    else:
+        # Optimization: Only show users with whom a conversation exists
+        msg_partners = ChatMessage.objects.filter(
+            Q(sender=request.user) | Q(receiver=request.user)
+        ).values_list('sender_id', 'receiver_id').distinct()
+        
+        active_ids = set()
+        for sid, rid in msg_partners:
+            if sid and sid != request.user.id: active_ids.add(sid)
+            if rid and rid != request.user.id: active_ids.add(rid)
+            
+        if selected_id:
+            try:
+                active_ids.add(int(selected_id))
+            except: pass
+            
+        users = users.filter(id__in=active_ids)
     
     # Typing threshold (if not updated in last 5 seconds, not typing anymore)
     typing_threshold = timezone.now() - timedelta(seconds=6)

@@ -52,7 +52,8 @@ export default function Chat() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/chat/users/?search=${searchTerm}`, {
+      const selectedId = selectedUser?.id || '';
+      const response = await fetch(`${API_URL}/api/chat/users/?search=${searchTerm}&selected_id=${selectedId}`, {
         headers: {
           "Authorization": `Bearer ${localStorage.getItem('session_token')}`
         }
@@ -71,7 +72,7 @@ export default function Chat() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  }, [searchTerm, selectedUser]);
 
   const fetchMessages = useCallback(async () => {
     try {
