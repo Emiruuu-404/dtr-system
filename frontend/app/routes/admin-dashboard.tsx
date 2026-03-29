@@ -170,6 +170,9 @@ export default function AdminDashboard() {
         localStorage.removeItem("admin_token");
         localStorage.removeItem("admin_id");
         localStorage.removeItem("admin_name");
+        localStorage.removeItem("token");
+        localStorage.removeItem("session_token");
+        localStorage.removeItem("student_id");
         navigate("/admin/login");
     };
 

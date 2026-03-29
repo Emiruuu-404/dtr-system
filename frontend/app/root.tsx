@@ -54,6 +54,7 @@ import { useEffect, useState } from 'react';
 import { API_URL } from './config';
 
 const hideNavbarRoutes = ['/login', '/register', '/forgot-password', '/admin/login', '/admin'];
+const isAdminRoute = (path: string) => path.startsWith('/admin');
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
 
 if (typeof window !== 'undefined' && !(window as any).__fetch_patched) {
@@ -120,29 +121,34 @@ export default function App() {
     }
   }, []);
 
-  // Authentication & Inactivity Guard
-  useEffect(() => {
-    if (localStorage.getItem('no_remember') === 'true') {
-      if (!sessionStorage.getItem('session_active')) {
-        localStorage.removeItem('student_id');
-        localStorage.removeItem('name');
-        localStorage.removeItem('session_token');
-        localStorage.removeItem('no_remember');
-      }
-    }
-    sessionStorage.setItem('session_active', 'true');
+    // Authentication & Inactivity Guard
+    useEffect(() => {
+        // Skip intern guard for admin routes
+        if (isAdminRoute(location.pathname)) return;
 
-    const student_id = localStorage.getItem('student_id');
-    const token = localStorage.getItem('session_token');
-    const isAuthenticated = student_id !== null && token !== null;
-    
-    if (!isAuthenticated && !hideNavbarRoutes.includes(location.pathname)) {
-      localStorage.removeItem('student_id');
-      localStorage.removeItem('name');
-      localStorage.removeItem('session_token');
-      navigate('/login', { replace: true });
-      return;
-    }
+        if (localStorage.getItem('no_remember') === 'true') {
+            if (!sessionStorage.getItem('session_active')) {
+                localStorage.removeItem('student_id');
+                localStorage.removeItem('name');
+                localStorage.removeItem('session_token');
+                localStorage.removeItem('admin_token');
+                localStorage.removeItem('no_remember');
+            }
+        }
+        sessionStorage.setItem('session_active', 'true');
+
+        const student_id = localStorage.getItem('student_id');
+        const token = localStorage.getItem('session_token');
+        const isAuthenticated = student_id !== null && token !== null;
+        
+        if (!isAuthenticated && !hideNavbarRoutes.includes(location.pathname)) {
+            localStorage.removeItem('student_id');
+            localStorage.removeItem('name');
+            localStorage.removeItem('session_token');
+            localStorage.removeItem('admin_token');
+            navigate('/login', { replace: true });
+            return;
+        }
     
     // Check Single Active Session
     const checkSession = () => {

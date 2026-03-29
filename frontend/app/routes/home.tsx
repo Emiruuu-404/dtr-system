@@ -33,6 +33,9 @@ export default function Home() {
         })
         .catch(() => {
             localStorage.removeItem("token");
+            localStorage.removeItem("session_token");
+            localStorage.removeItem("admin_token");
+            localStorage.removeItem("student_id");
             navigate("/login");
         });
 

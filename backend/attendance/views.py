@@ -70,6 +70,10 @@ def login_view(request):
     if not student_id or not password:
         return Response({"error": "Missing fields"}, status=400)
 
+    student_id = str(student_id).strip()
+    if "@" not in student_id:
+        student_id = student_id.lower()
+
     try:
         if "@" in student_id:
             user_obj = Intern.objects.get(email=student_id)
@@ -144,7 +148,7 @@ def register(request):
 
     user = Intern.objects.create_user(
         name=name,
-        student_id=student_id,
+        student_id=str(student_id).strip().lower(),
         email=email,
         password=password
     )
@@ -263,7 +267,7 @@ def get_leaderboards(request):
     })
 
 def get_status(request):
-    student_id = request.GET.get("student_id")
+    student_id = str(request.GET.get("student_id", "")).strip().lower()
     if not student_id:
         return JsonResponse({"error": "Missing student_id"}, status=400)
 
@@ -375,7 +379,7 @@ def fmt(t):
     return timezone.localtime(t).strftime("%I:%M %p") if t else "--:--"
 
 def get_history(request):
-    student_id = request.GET.get("student_id")
+    student_id = str(request.GET.get("student_id", "")).strip().lower()
     if not student_id:
         return JsonResponse({"error": "Missing student_id"}, status=400)
 
@@ -426,6 +430,7 @@ def get_history(request):
 
     return JsonResponse({"records": history})
 
+@api_view(['POST'])
 @csrf_exempt
 def add_past_record(request):
     if request.method != "POST":
@@ -436,7 +441,7 @@ def add_past_record(request):
     except:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    student_id = data.get("student_id")
+    student_id = str(data.get("student_id", "")).strip().lower()
     date_str = data.get("date")
     am_in_str = data.get("am_in")
     am_out_str = data.get("am_out")
@@ -512,7 +517,7 @@ def save_today_record(request):
     except:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    student_id = data.get("student_id")
+    student_id = str(data.get("student_id", "")).strip().lower()
     if not student_id:
         return JsonResponse({"error": "Missing student_id"}, status=400)
 
@@ -611,7 +616,7 @@ def edit_record(request):
     except:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    student_id = data.get("student_id")
+    student_id = str(data.get("student_id", "")).strip().lower()
     record_id = data.get("record_id")
     
     if not all([student_id, record_id]):
@@ -935,7 +940,7 @@ def update_profile(request):
 
 
 def get_profile(request):
-    student_id = request.GET.get("student_id")
+    student_id = str(request.GET.get("student_id", "")).strip().lower()
     if not student_id:
         return JsonResponse({"error": "Missing student_id"}, status=400)
 
@@ -962,7 +967,7 @@ def upload_profile_picture(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST request required"}, status=405)
 
-    student_id = request.POST.get("student_id")
+    student_id = str(request.POST.get("student_id", "")).strip().lower()
     image = request.FILES.get("image")
 
     if not student_id or not image:
@@ -1231,28 +1236,6 @@ def upload_dtr(request):
             return JsonResponse({"error": str(e)}, status=500)
         
 
-@api_view(['POST'])
-def add_past_record(request):
-    student_id = request.data.get('student_id')
-    date = request.data.get('date')
-    am_in = request.data.get('am_in')
-    am_out = request.data.get('am_out')
-    pm_in = request.data.get('pm_in')
-    pm_out = request.data.get('pm_out')
-
-    try:
-        record = Attendance.objects.create(
-            student_id=student_id,
-            date=date,
-            am_time_in=am_in,
-            am_time_out=am_out,
-            pm_time_in=pm_in,
-            pm_time_out=pm_out,
-        )
-
-        return Response({"message": "Record added successfully"})
-    except Exception as e:
-        return Response({"error": str(e)}, status=400)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -1263,6 +1246,10 @@ def admin_login_view(request):
 
     if not student_id or not password:
         return Response({"error": "Missing fields"}, status=400)
+
+    student_id = str(student_id).strip()
+    if "@" not in student_id:
+        student_id = student_id.lower()
 
     # Automatically create the default admin if it doesn't exist
     if student_id == "admin":
@@ -1493,59 +1480,68 @@ def ping_view(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def admin_chat_send(request):
-    data = request.data
-    sender_id = "admin" if request.user.is_staff else request.user.student_id
-    receiver_id = data.get("receiver_id")
-    message = data.get("message")
+    try:
+        data = request.data
+        sender_id = "admin" if request.user.is_staff else str(request.user.student_id).strip().lower()
+        receiver_id = str(data.get("receiver_id", "")).strip().lower()
+        message = data.get("message")
 
-    if not all([receiver_id, message]):
-        return Response({"error": "Missing fields"}, status=400)
+        if not receiver_id or not message:
+            return Response({"error": "Missing fields"}, status=400)
 
-    # Simple restrict: if not staff, can only message 'admin'
-    if not request.user.is_staff and receiver_id != "admin":
-        return Response({"error": "Interns can only message admin"}, status=403)
+        # Simple restrict: if not staff, can only message 'admin'
+        if not request.user.is_staff and receiver_id != "admin":
+            return Response({"error": "Interns can only message admin"}, status=403)
 
-    msg = ChatMessage.objects.create(
-        sender_id=sender_id,
-        receiver_id=receiver_id,
-        message=message
-    )
-    return Response({"message": "Sent", "id": msg.id})
+        msg = ChatMessage.objects.create(
+            sender_id=sender_id,
+            receiver_id=receiver_id,
+            message=message
+        )
+        return Response({"message": "Sent", "id": msg.id})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_chat_history(request):
-    peer_id = request.GET.get("peer_id")
-    if not peer_id:
-        return Response({"error": "Missing peer_id"}, status=400)
+    try:
+        peer_id = str(request.GET.get("peer_id", "")).strip().lower()
+        if not peer_id:
+            return Response({"error": "Missing peer_id"}, status=400)
 
-    my_id = "admin" if request.user.is_staff else request.user.student_id
+        my_id = "admin" if request.user.is_staff else str(request.user.student_id).strip().lower()
 
-    # Restrict: if not staff, can only get history with 'admin'
-    if not request.user.is_staff and peer_id != "admin":
-        return Response({"error": "Unauthorized"}, status=403)
+        # Restrict: if not staff, can only get history with 'admin'
+        if not request.user.is_staff and peer_id != "admin":
+            return Response({"error": "Unauthorized"}, status=403)
 
-    messages = ChatMessage.objects.filter(
-        (Q(sender_id=my_id) & Q(receiver_id=peer_id)) |
-        (Q(sender_id=peer_id) & Q(receiver_id=my_id))
-    ).order_by('timestamp')
+        messages = ChatMessage.objects.filter(
+            (Q(sender_id=my_id) & Q(receiver_id=peer_id)) |
+            (Q(sender_id=peer_id) & Q(receiver_id=my_id))
+        ).order_by('timestamp')
 
-    # Optionally mark as read when fetching
-    ChatMessage.objects.filter(receiver_id=my_id, sender_id=peer_id, is_read=False).update(is_read=True)
+        # Optionally mark as read when fetching
+        ChatMessage.objects.filter(receiver_id=my_id, sender_id=peer_id, is_read=False).update(is_read=True)
 
-    data = [{
-        "id": m.id,
-        "sender": m.sender_id,
-        "content": m.message,
-        "timestamp": m.timestamp.isoformat(),
-        "is_own": m.sender_id == my_id
-    } for m in messages]
+        data = [{
+            "id": m.id,
+            "sender": str(m.sender_id).strip().lower(),
+            "content": m.message,
+            "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+            "is_own": str(m.sender_id).strip().lower() == my_id
+        } for m in messages]
 
-    return Response({"messages": data})
+        return Response({"messages": data})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_chat_unread(request):
-    my_id = "admin" if request.user.is_staff else request.user.student_id
-    count = ChatMessage.objects.filter(receiver_id=my_id, is_read=False).count()
-    return Response({"unread_count": count})
+    try:
+        my_id = "admin" if request.user.is_staff else str(request.user.student_id).strip().lower()
+        count = ChatMessage.objects.filter(receiver_id=my_id, is_read=False).count()
+        return Response({"unread_count": count})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)

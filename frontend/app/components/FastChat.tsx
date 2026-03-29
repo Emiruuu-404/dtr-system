@@ -25,11 +25,22 @@ const FastChat: React.FC<FastChatProps> = ({ peerId, peerName, isOpen, onClose }
   const scrollRef = useRef<HTMLDivElement>(null);
   const pollInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Robust token retrieval
+  // Robust token retrieval with context sensitivity
   const getToken = () => {
-    return localStorage.getItem("admin_token") || 
-           localStorage.getItem("token") || 
-           localStorage.getItem("session_token");
+    // Check which environment we're in to prioritize the right token
+    const isAdminPath = typeof window !== 'undefined' && window.location.pathname.includes('/admin');
+    
+    if (isAdminPath) {
+      // Admin dashboard should prioritize admin_token
+      return localStorage.getItem("admin_token") || 
+             localStorage.getItem("token") || 
+             localStorage.getItem("session_token");
+    } else {
+      // Intern dashboard should prioritize session_token/token
+      return localStorage.getItem("session_token") || 
+             localStorage.getItem("token") || 
+             localStorage.getItem("admin_token");
+    }
   };
 
   const fetchMessages = async (silent = false) => {
