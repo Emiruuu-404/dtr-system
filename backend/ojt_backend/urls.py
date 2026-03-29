@@ -16,7 +16,7 @@ from attendance.views import (
     get_admin_dashboard, admin_intern_actions, admin_export_csv, 
     upload_profile_picture, get_profile_picture_view, get_chat_messages, 
     send_chat_message, get_chat_users, get_intern_dashboard_data,
-    mark_chat_read, update_typing_status
+    mark_chat_read, update_typing_status, ping_view
 )
 
 def home(request):
@@ -64,6 +64,7 @@ urlpatterns =[
     path('api/upload-dtr/', upload_dtr, name='upload_dtr'),
     path('api/verify-session/', verify_session),
     path('api/dashboard-data/', get_intern_dashboard_data),
+    path('api/ping/', ping_view),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

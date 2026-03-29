@@ -1670,22 +1670,36 @@ def admin_export_csv(request):
     writer = csv.writer(response)
     writer.writerow(['Student ID', 'Name', 'Email', 'Active Status', 'Total Hours', 'Total Hours (Formatted)', 'Remaining Hours (of 486)', 'Remaining Hours (Formatted)'])
 
-    interns = Intern.objects.filter(is_staff=False)
+    interns = Intern.objects.filter(is_staff=False).defer('profile_picture_blob')
+    
+    # Batch attendance
+    all_attendance = Attendance.objects.filter(student_id__in=[i.student_id for i in interns])
+    attendance_by_student = defaultdict(list)
+    for r in all_attendance:
+        attendance_by_student[r.student_id].append(r)
+
     for intern in interns:
-        records = Attendance.objects.filter(student_id=intern.student_id)
-        total_hours = sum(get_effective_hours(r.am_time_in, r.am_time_out) + get_effective_hours(r.pm_time_in, r.pm_time_out) for r in records)
+        # records = Attendance.objects.filter(student_id=intern.student_id)
+        records_list = attendance_by_student.get(intern.student_id, [])
+        total_hours = sum(get_effective_hours(r.am_time_in, r.am_time_out) + get_effective_hours(r.pm_time_in, r.pm_time_out) for r in records_list)
         total_hours = round(total_hours, 2)
-        remaining = max(486 - total_hours, 0)
-        
+        total_required = 486
+        remaining = max(total_required - total_hours, 0)
+
         writer.writerow([
             intern.student_id,
             intern.name,
             intern.email,
-            "Active" if intern.is_active else "Deactivated",
+            "Active" if intern.is_active else "Inactive",
             total_hours,
             format_hrs_mins(total_hours),
-            round(remaining, 2),
+            remaining,
             format_hrs_mins(remaining)
         ])
 
     return response
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def ping_view(request):
+    return Response({"status": "ok", "timestamp": timezone.now()})
