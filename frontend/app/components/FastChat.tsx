@@ -109,10 +109,12 @@ const FastChat: React.FC<FastChatProps> = ({ peerId, peerName, isOpen, onClose }
 
   useEffect(() => {
     if (isOpen) {
+      setMessages([]); // Clear previous messages when switching users
       fetchMessages();
       pollInterval.current = setInterval(() => fetchMessages(true), 4000); 
     } else {
       if (pollInterval.current) clearInterval(pollInterval.current);
+      setMessages([]); // Clear when closed
     }
     return () => { if (pollInterval.current) clearInterval(pollInterval.current); };
   }, [isOpen, peerId]);

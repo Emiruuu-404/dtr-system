@@ -235,8 +235,8 @@ export default function App() {
       <Outlet />
       {showNavbar && <Navbar />}
 
-      {/* GLOBAL CHAT (Intern side) */}
-      {showNavbar && (
+      {/* GLOBAL CHAT (Intern side only - hidden for admin dashboard) */}
+      {showNavbar && !location.pathname.includes('/admin') && (
         <>
           <button
             onClick={() => setIsChatOpen(true)}

@@ -874,6 +874,7 @@ export default function AdminDashboard() {
             {/* Global Chat Modal */}
             {chatTarget && (
                 <FastChat 
+                    key={chatTarget.id} 
                     peerId={chatTarget.id} 
                     peerName={chatTarget.name} 
                     isOpen={!!chatTarget} 
