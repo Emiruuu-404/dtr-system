@@ -27,9 +27,9 @@ const FastChat: React.FC<FastChatProps> = ({ peerId, peerName, isOpen, onClose }
 
   // Robust token retrieval
   const getToken = () => {
-    return localStorage.getItem("session_token") || 
-           localStorage.getItem("admin_token") || 
-           localStorage.getItem("token");
+    return localStorage.getItem("admin_token") || 
+           localStorage.getItem("token") || 
+           localStorage.getItem("session_token");
   };
 
   const fetchMessages = async (silent = false) => {
