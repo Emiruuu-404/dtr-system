@@ -815,32 +815,37 @@ def get_chat_messages(request):
     user_id = request.GET.get('user_id')
     mode = request.GET.get('mode')
     
-    # Base filter: User must be sender or receiver, or it must be a community message
-    messages = ChatMessage.objects.filter(
-        Q(sender=request.user) | Q(receiver=request.user) | Q(receiver__isnull=True)
-    )
+    # Base queryset with essential fields and optimized relations
+    base_qs = ChatMessage.objects.select_related('sender', 'receiver')
     
-    # Narrow down based on frontend selection
     if mode == 'community':
-        messages = messages.filter(receiver__isnull=True)
+        # ONLY public messages
+        messages = base_qs.filter(receiver__isnull=True)
     elif user_id:
         try:
             other_id = int(user_id)
-            # Only messages between the two users
-            messages = messages.filter(
-                (Q(sender_id=other_id) & Q(receiver=request.user)) |
-                (Q(sender=request.user) & Q(receiver_id=other_id))
+            # ONLY private messages between me and the other user
+            messages = base_qs.filter(
+                (Q(sender=request.user) & Q(receiver_id=other_id)) |
+                (Q(sender_id=other_id) & Q(receiver=request.user))
             )
         except (ValueError, TypeError):
-            pass
+            # Fallback if ID is invalid
+            messages = base_qs.filter(id__lt=0) 
+    else:
+        # No specific request? Return ONLY my messages and community for fallback, 
+        # but technically this branch should not be hit by the optimized frontend.
+        messages = base_qs.filter(
+            Q(sender=request.user) | Q(receiver=request.user) | Q(receiver__isnull=True)
+        )
             
     # Always ordered by latest first, then limit, then reverse for display
-    # Actually, order_by timestamp for now, but limit to last 150 messages.
     messages = messages.order_by('-timestamp')[:150]
     messages = sorted(messages, key=lambda x: x.timestamp)
     
     serializer = ChatMessageSerializer(messages, many=True)
     return Response(serializer.data)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -865,6 +870,7 @@ def send_chat_message(request):
     data = request.data
     content = data.get('content')
     receiver_id = data.get('receiver')
+    is_community = data.get('is_community', False)
 
     if not content:
         return Response({"error": "Content is required"}, status=400)
@@ -875,6 +881,9 @@ def send_chat_message(request):
             receiver = Intern.objects.get(id=receiver_id)
         except Intern.DoesNotExist:
             return Response({"error": "Receiver not found"}, status=404)
+    elif not is_community:
+        # If not community and no receiver, something is wrong with the selected user state
+        return Response({"error": "Receiver is required for private messages"}, status=400)
 
     message = ChatMessage.objects.create(
         sender=request.user,

@@ -137,17 +137,20 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
+    // Clear messages immediately when switching to avoid seeing old chats ("flicker")
+    setMessages([]);
+    setLoading(true);
     setIsInitialLoad(true);
+    
     fetchMessages();
     if (selectedUser) {
         markAsRead(selectedUser.id);
     }
 
-    // Faster polling: 1.5 seconds instead of 3
     const interval = setInterval(() => {
         fetchMessages();
         fetchUsers();
-    }, 1500);
+    }, 2000); // Relaxed interval to 2s for better server performance
     return () => clearInterval(interval);
   }, [selectedUser, isCommunityMode, fetchMessages, fetchUsers, markAsRead]);
 
@@ -213,7 +216,8 @@ export default function Chat() {
         },
         body: JSON.stringify({
           content: newMessage,
-          receiver: selectedUser?.id || null,
+          receiver: isCommunityMode ? null : selectedUser?.id,
+          is_community: isCommunityMode
         }),
       });
 
