@@ -11,7 +11,7 @@ import type { Route } from './+types/root';
 import stylesheet from './app.css?url';
 import Navbar from './components/Navbar';
 import FastChat from './components/FastChat';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, X } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 
@@ -95,9 +95,15 @@ export default function App() {
         const resp = await fetch(`${API_URL}/api/chat/unread/`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
-        const d = await resp.json();
-        if (d.unread_count !== undefined) setUnreadCount(d.unread_count);
-      } catch (err) {}
+        if (!resp.ok) return;
+        const contentType = resp.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const d = await resp.json();
+          if (d.unread_count !== undefined) setUnreadCount(d.unread_count);
+        }
+      } catch (err) {
+        console.error("Unread fetch error:", err);
+      }
     };
 
     fetchUnread();
@@ -380,14 +386,81 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
+    <main className="pt-24 p-6 container mx-auto text-center min-h-[50vh] flex flex-col items-center justify-center">
+      <div className="w-20 h-20 bg-red-50 text-red-600 rounded-3xl flex items-center justify-center mb-6 border-[3px] border-red-100 animate-bounce">
+        <X size={40} strokeWidth={3} />
+      </div>
+      <h1 className="text-4xl font-black text-gray-900 mb-4 tracking-tighter">{message}</h1>
+      <p className="text-lg text-gray-500 font-medium mb-8 max-w-md mx-auto">{details}</p>
+      
       {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
-          <code>{stack}</code>
-        </pre>
+        <div className="w-full max-w-3xl bg-gray-900 rounded-3xl p-6 text-left overflow-hidden shadow-2xl border-4 border-gray-800">
+           <div className="flex items-center gap-2 mb-4">
+             <div className="w-3 h-3 rounded-full bg-red-500" />
+             <div className="w-3 h-3 rounded-full bg-amber-500" />
+             <div className="w-3 h-3 rounded-full bg-emerald-500" />
+             <span className="ml-2 text-[10px] font-black text-white/40 uppercase tracking-widest">Debug Console</span>
+           </div>
+           <pre className="w-full overflow-x-auto text-xs text-red-400 font-mono custom-scrollbar">
+             <code>{stack}</code>
+           </pre>
+        </div>
       )}
+
+      <button 
+        onClick={() => window.location.href = '/'}
+        className="mt-10 px-8 py-4 bg-green-900 text-white rounded-2xl font-black uppercase tracking-widest shadow-[6px_6px_0px_0px_rgba(20,83,45,0.2)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all active:scale-95"
+      >
+        Back to Dashboard
+      </button>
     </main>
+  );
+}
+
+export function HydrateFallback() {
+  return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[10000]">
+      <div className="relative group">
+        {/* Shimmering circle background */}
+        <div className="absolute -inset-8 bg-green-50 rounded-full blur-3xl group-hover:bg-green-100 transition-all duration-1000 animate-pulse" />
+        
+        {/* App Logo/Icon Container */}
+        <div className="relative w-32 h-32 bg-white border-[6px] border-green-900 rounded-[2.5rem] flex items-center justify-center shadow-[12px_12px_0px_0px_rgba(20,83,45,1)] animate-in zoom-in-50 duration-500">
+          <svg
+            width="60"
+            height="60"
+            viewBox="0 0 120 120"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="text-green-900"
+          >
+            <path
+              d="M10 30H110V100C110 105.523 105.523 110 100 110H20C14.4772 110 10 105.523 10 100V30Z"
+              stroke="currentColor"
+              strokeWidth="10"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M10 30L60 10L110 30"
+              stroke="currentColor"
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle cx="60" cy="65" r="15" fill="currentColor" />
+          </svg>
+        </div>
+      </div>
+      
+      <div className="mt-16 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-4 duration-700 delay-300">
+        <h2 className="text-2xl font-black text-green-900 uppercase tracking-[0.2em]">OJT DTR System</h2>
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 bg-green-900 rounded-full animate-bounce [animation-delay:-0.3s]" />
+          <div className="w-3 h-3 bg-green-900 rounded-full animate-bounce [animation-delay:-0.15s]" />
+          <div className="w-3 h-3 bg-green-900 rounded-full animate-bounce" />
+        </div>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">Initializing Application</p>
+      </div>
+    </div>
   );
 }

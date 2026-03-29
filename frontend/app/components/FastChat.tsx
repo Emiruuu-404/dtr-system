@@ -40,10 +40,15 @@ const FastChat: React.FC<FastChatProps> = ({ peerId, peerName, isOpen, onClose }
       const resp = await fetch(`${API_URL}/api/chat/history/?peer_id=${peerId}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      const data = await resp.json();
-      if (data.messages) {
-        // Only update if messages length changed or some are pending
-        setMessages(data.messages);
+      
+      if (!resp.ok) return;
+      
+      const contentType = resp.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await resp.json();
+        if (data.messages) {
+          setMessages(data.messages);
+        }
       }
     } catch (err) {
       if (!silent) console.error("Chat fetch error:", err);

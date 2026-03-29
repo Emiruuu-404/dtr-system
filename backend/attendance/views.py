@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, get_effective_hours
+from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, get_effective_hours, ChatMessage
 from django.contrib.auth.hashers import make_password, check_password
 import io
 from datetime import datetime, time, timedelta
@@ -14,6 +14,8 @@ import uuid
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import Q
+from collections import defaultdict
 
 
 def format_hrs_mins(decimal_hours):
@@ -1492,7 +1494,7 @@ def ping_view(request):
 @permission_classes([IsAuthenticated])
 def admin_chat_send(request):
     data = request.data
-    sender_id = request.user.student_id or "admin" 
+    sender_id = "admin" if request.user.is_staff else request.user.student_id
     receiver_id = data.get("receiver_id")
     message = data.get("message")
 
@@ -1517,13 +1519,12 @@ def admin_chat_history(request):
     if not peer_id:
         return Response({"error": "Missing peer_id"}, status=400)
 
-    my_id = request.user.student_id or "admin"
+    my_id = "admin" if request.user.is_staff else request.user.student_id
 
     # Restrict: if not staff, can only get history with 'admin'
     if not request.user.is_staff and peer_id != "admin":
         return Response({"error": "Unauthorized"}, status=403)
 
-    from django.db.models import Q
     messages = ChatMessage.objects.filter(
         (Q(sender_id=my_id) & Q(receiver_id=peer_id)) |
         (Q(sender_id=peer_id) & Q(receiver_id=my_id))
@@ -1545,6 +1546,6 @@ def admin_chat_history(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_chat_unread(request):
-    my_id = request.user.student_id or "admin"
+    my_id = "admin" if request.user.is_staff else request.user.student_id
     count = ChatMessage.objects.filter(receiver_id=my_id, is_read=False).count()
     return Response({"unread_count": count})
