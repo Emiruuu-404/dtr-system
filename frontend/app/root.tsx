@@ -123,8 +123,11 @@ export default function App() {
                localStorage.removeItem('student_id');
                localStorage.removeItem('name');
                localStorage.removeItem('session_token');
-               alert("Your account was logged in from another device. For security, you have been logged out.");
-               navigate('/login', { replace: true });
+               // Avoid alerting if already on login page
+               if (!window.location.pathname.includes('/login')) {
+                 alert("Your session has expired. Please log in again.");
+                 navigate('/login', { replace: true });
+               }
             }
           })
           .catch(() => {});

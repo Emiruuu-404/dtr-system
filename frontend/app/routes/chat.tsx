@@ -57,6 +57,10 @@ export default function Chat() {
           "Authorization": `Bearer ${localStorage.getItem('session_token')}`
         }
       });
+      if (response.status === 401) {
+        // Authorization failed - let the root handler deal with redirection
+        return;
+      }
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users || []);
@@ -71,11 +75,17 @@ export default function Chat() {
 
   const fetchMessages = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/chat/messages/`, {
+      const mode = isCommunityMode ? 'community' : '';
+      const userId = selectedUser?.id || '';
+      const response = await fetch(`${API_URL}/api/chat/messages/?mode=${mode}&user_id=${userId}`, {
         headers: {
           "Authorization": `Bearer ${localStorage.getItem('session_token')}`
         }
       });
+      if (response.status === 401) {
+        // Authorization failed
+        return;
+      }
       if (response.ok) {
         let allMessages: Message[] = await response.json();
 
@@ -138,7 +148,7 @@ export default function Chat() {
         fetchUsers();
     }, 1500);
     return () => clearInterval(interval);
-  }, [selectedUser, fetchMessages, fetchUsers, markAsRead]);
+  }, [selectedUser, isCommunityMode, fetchMessages, fetchUsers, markAsRead]);
 
   // Typing logic
   const sendTypingStatus = async (typingTo: number | null | 0) => {

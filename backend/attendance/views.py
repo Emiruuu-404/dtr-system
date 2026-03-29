@@ -137,7 +137,7 @@ def verify_session(request):
     except Exception:
         pass
         
-    return Response({"valid": False, "error": "Logged in from another device or session expired"}, status=401)
+    return Response({"valid": False, "error": "Session expired or invalid token"}, status=401)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -249,12 +249,23 @@ def time_out(request):
 
 
 
+from collections import defaultdict
+
 def get_leaderboards(request):
-    interns = Intern.objects.filter(is_staff=False, is_active=True)
+    interns = Intern.objects.filter(is_staff=False, is_active=True).defer('profile_picture_blob')
     
     leaderboard_data = []
+    
+    # Optimize: Fetch all relevant attendance records in ONE query
+    student_ids = [i.student_id for i in interns]
+    all_attendance = Attendance.objects.filter(student_id__in=student_ids)
+    
+    attendance_by_student = defaultdict(list)
+    for record in all_attendance:
+        attendance_by_student[record.student_id].append(record)
+
     for intern in interns:
-        records = Attendance.objects.filter(student_id=intern.student_id)
+        records = attendance_by_student.get(intern.student_id, [])
         total_hours = 0
         for r in records:
             total_hours += get_effective_hours(r.am_time_in, r.am_time_out)
@@ -292,7 +303,7 @@ def get_status(request):
         return JsonResponse({"error": "Missing student_id"}, status=400)
 
     try:
-        user = Intern.objects.get(student_id=student_id)
+        user = Intern.objects.defer('profile_picture_blob').get(student_id=student_id)
     except Intern.DoesNotExist:
         return JsonResponse({"error": "Intern not found"}, status=404)
 
@@ -841,9 +852,33 @@ def get_chat_messages(request):
     # Update last active timestamp
     request.user.save(update_fields=['last_active'])
     
+    user_id = request.GET.get('user_id')
+    mode = request.GET.get('mode')
+    
+    # Base filter: User must be sender or receiver, or it must be a community message
     messages = ChatMessage.objects.filter(
         Q(sender=request.user) | Q(receiver=request.user) | Q(receiver__isnull=True)
-    ).order_by('timestamp')
+    )
+    
+    # Narrow down based on frontend selection
+    if mode == 'community':
+        messages = messages.filter(receiver__isnull=True)
+    elif user_id:
+        try:
+            other_id = int(user_id)
+            # Only messages between the two users
+            messages = messages.filter(
+                (Q(sender_id=other_id) & Q(receiver=request.user)) |
+                (Q(sender=request.user) & Q(receiver_id=other_id))
+            )
+        except (ValueError, TypeError):
+            pass
+            
+    # Always ordered by latest first, then limit, then reverse for display
+    # Actually, order_by timestamp for now, but limit to last 150 messages.
+    messages = messages.order_by('-timestamp')[:150]
+    messages = sorted(messages, key=lambda x: x.timestamp)
+    
     serializer = ChatMessageSerializer(messages, many=True)
     return Response(serializer.data)
 
@@ -926,25 +961,23 @@ def get_intern_dashboard_data(request):
         Q(pm_time_in__isnull=False, pm_time_out__isnull=True)
     ).exclude(student_id=intern.student_id)
     
+    online_student_ids = [r.student_id for r in online_records]
+    online_intern_objs = Intern.objects.filter(student_id__in=online_student_ids, is_active=True).defer('profile_picture_blob')
+    
     online_interns = []
-    for r in online_records:
-        try:
-            other = Intern.objects.get(student_id=r.student_id)
-            if not other.is_active: continue
+    for other in online_intern_objs:
+        pfp = None
+        if other.profile_picture_blob:
+            pfp = request.build_absolute_uri(f"/api/profile-picture/{other.student_id}/")
+        elif other.profile_picture:
+            pfp = request.build_absolute_uri(other.profile_picture.url)
             
-            pfp = None
-            if other.profile_picture_blob:
-                pfp = request.build_absolute_uri(f"/api/profile-picture/{other.student_id}/")
-            elif other.profile_picture:
-                pfp = request.build_absolute_uri(other.profile_picture.url)
-                
-            online_interns.append({
-                "id": other.id,
-                "name": other.name,
-                "student_id": other.student_id,
-                "profile_picture": pfp
-            })
-        except: continue
+        online_interns.append({
+            "id": other.id,
+            "name": other.name,
+            "student_id": other.student_id,
+            "profile_picture": pfp
+        })
 
     return Response({
         "name": intern.name,
@@ -962,7 +995,7 @@ def get_chat_users(request):
     from django.utils import timezone
     from datetime import timedelta
 
-    users = Intern.objects.filter(is_active=True).exclude(id=request.user.id)
+    users = Intern.objects.filter(is_active=True).exclude(id=request.user.id).defer('profile_picture_blob')
     search = request.GET.get('search')
     if search:
         users = users.filter(name__icontains=search)
@@ -1090,7 +1123,7 @@ def update_profile(request):
         return JsonResponse({"error": "Missing student_id"}, status=400)
 
     try:
-        user = Intern.objects.get(student_id=student_id)
+        user = Intern.objects.defer('profile_picture_blob').get(student_id=student_id)
 
         if name:
             user.name = name
@@ -1113,7 +1146,7 @@ def get_profile(request):
         return JsonResponse({"error": "Missing student_id"}, status=400)
 
     try:
-        user = Intern.objects.get(student_id=student_id)
+        user = Intern.objects.defer('profile_picture_blob').get(student_id=student_id)
         profile_picture_url = None
         if user.profile_picture_blob:
             profile_picture_url = request.build_absolute_uri(f"/api/profile-picture/{user.student_id}/")
@@ -1296,7 +1329,7 @@ def get_reports(request):
         
         results = []
         for r in reports:
-            image_urls = [request.build_absolute_uri(f"/api/report-image/{img.id}/") for img in r.images.all()]
+            image_urls = [request.build_absolute_uri(f"/api/report-image/{img.id}/") for img in r.images.all().defer('image_blob')]
             results.append({
                 "id": r.id,
                 "date": r.date.strftime("%b %d, %Y"),
@@ -1498,7 +1531,7 @@ def get_admin_dashboard(request):
         print("Admin Auth Error:", e)
         return Response({"error": "Authentication failed", "details": str(e)}, status=401)
 
-    interns = Intern.objects.filter(is_staff=False)
+    interns = Intern.objects.filter(is_staff=False).defer('profile_picture_blob')
     today = timezone.localtime().date()
     
     total_interns = interns.count()
@@ -1506,16 +1539,23 @@ def get_admin_dashboard(request):
     
     intern_list = []
     
+    # Optimize: Fetch all relevant attendance records in ONE query
+    all_attendance = Attendance.objects.filter(student_id__in=[i.student_id for i in interns])
+    attendance_by_student = defaultdict(list)
+    for record in all_attendance:
+        attendance_by_student[record.student_id].append(record)
+
     for intern in interns:
-        records = Attendance.objects.filter(student_id=intern.student_id)
+        records_list = attendance_by_student.get(intern.student_id, [])
         total_hours = 0
-        for r in records:
+        for r in records_list:
             total_hours += get_effective_hours(r.am_time_in, r.am_time_out)
             total_hours += get_effective_hours(r.pm_time_in, r.pm_time_out)
         total_hours = round(total_hours, 2)
         
         # Determine status today
-        today_record = records.filter(date=today).first()
+        # today_record = records.filter(date=today).first() - Optimized to search local list
+        today_record = next((r for r in records_list if r.date == today), None)
         status_today = "Not Timed In"
         if today_record:
             if today_record.am_time_in and not today_record.am_time_out:
