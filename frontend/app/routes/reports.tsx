@@ -11,18 +11,28 @@ export default function Reports() {
   const [supervisor, setSupervisor] = useState('');
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+
 
   // New state for uploading
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Ihiwalay ang fetch function para pwedeng i-call ulit pagkatapos mag-upload
   const fetchReportData = () => {
     const student_id = localStorage.getItem('student_id');
     if (!student_id) return;
 
     Promise.all([
-      fetch(`${API_URL}/api/status/?student_id=${student_id}`).then(res => res.json()),
+      fetch(`${API_URL}/api/status/?student_id=${student_id}&month=${selectedMonth}&year=${selectedYear}`).then(res => res.json()),
       new Promise(resolve => setTimeout(resolve, 800))
     ]).then(([data]) => {
       setReportData(data);
@@ -31,7 +41,7 @@ export default function Reports() {
 
   useEffect(() => {
     fetchReportData();
-  }, []);
+  }, [selectedMonth, selectedYear]);
 
   // Function para sa File Upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,7 +106,7 @@ export default function Reports() {
     setStatus('Generating DTR Document...');
 
     try {
-      const downloadUrl = `${API_URL}/api/download-dtr/?student_id=${student_id}&day_type=${encodeURIComponent(dayType)}&supervisor=${encodeURIComponent(supervisor)}&period=${encodeURIComponent(period)}`;
+      const downloadUrl = `${API_URL}/api/download-dtr/?student_id=${student_id}&day_type=${encodeURIComponent(dayType)}&supervisor=${encodeURIComponent(supervisor)}&period=${encodeURIComponent(period)}&month=${selectedMonth}&year=${selectedYear}`;
       const response = await fetch(downloadUrl);
 
       if (!response.ok) {
@@ -137,7 +147,7 @@ export default function Reports() {
     if (!student_id) return;
 
     setIsPreviewLoading(true);
-    fetch(`${API_URL}/api/history/?student_id=${student_id}`)
+    fetch(`${API_URL}/api/history/?student_id=${student_id}&month=${selectedMonth}&year=${selectedYear}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.records) {
@@ -207,17 +217,36 @@ export default function Reports() {
           <div className="bg-white p-7 border-2 border-green-900 relative">
             <div className="absolute inset-0 bg-green-900 -z-10 translate-x-1 translate-y-1"></div>
 
-            <h3 className="font-black text-gray-900 text-xl mb-6 flex items-center gap-3 uppercase tracking-wide">
-              <PieChart className="text-green-700" strokeWidth={3} size={24} />
-              {currentMonthYear}
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+              <div className="flex items-center gap-3">
+                <PieChart className="text-green-700 shrink-0" strokeWidth={3} size={24} />
+                <select 
+                  value={selectedMonth} 
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className="bg-white border-2 border-green-900 font-black uppercase text-xs p-1 focus:outline-none"
+                >
+                  {months.map((m, i) => (
+                    <option key={m} value={i + 1}>{m}</option>
+                  ))}
+                </select>
+                <select 
+                  value={selectedYear} 
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="bg-white border-2 border-green-900 font-black uppercase text-xs p-1 focus:outline-none"
+                >
+                  {years.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             <div className="flex items-end justify-between mb-3 border-b-2 border-dashed border-gray-300 pb-2">
               <p className="font-black text-gray-600 text-xs uppercase tracking-widest">
                 Total Progress
               </p>
               <p className="font-black text-green-700 text-xl sm:text-2xl flex items-baseline gap-1 whitespace-nowrap">
-                <span>{reportData?.formatted_total_hours || "0 h 0 min"}</span>
+                <span>{reportData?.formatted_monthly_hours || "0 h 0 min"}</span>
                 <span className="text-[10px] sm:text-sm font-bold text-gray-400">
                   / {totalRequired} h
                 </span>
@@ -287,7 +316,7 @@ export default function Reports() {
                   DTR Preview
                 </h3>
                 <p className="text-gray-500 font-bold text-xs uppercase tracking-widest">
-                  {currentMonthYear}
+                  {months[selectedMonth - 1]} {selectedYear}
                 </p>
               </div>
               <button
@@ -331,16 +360,13 @@ export default function Reports() {
                     </tr>
                   ) : (
                     (() => {
-                      const now = new Date();
                       const daysInMonth = new Date(
-                        now.getFullYear(),
-                        now.getMonth() + 1,
+                        selectedYear,
+                        selectedMonth,
                         0
                       ).getDate();
-                      const monthName = now.toLocaleString('default', {
-                        month: 'short',
-                      });
-                      const year = now.getFullYear();
+                      const monthName = months[selectedMonth - 1].substring(0, 3);
+                      const year = selectedYear;
 
                       return Array.from(
                         { length: daysInMonth },

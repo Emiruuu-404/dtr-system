@@ -310,6 +310,26 @@ def get_status(request):
     
     # ===== TOTAL HOURS =====
     total_hours = round(user.total_hours, 2)
+    
+    # ===== MONTHLY HOURS (Optional filtering) =====
+    requested_month = request.GET.get("month")
+    requested_year = request.GET.get("year")
+    monthly_hours = None
+    formatted_monthly_hours = None
+    
+    if requested_month and requested_year:
+        try:
+            m = int(requested_month)
+            y = int(requested_year)
+            records = Attendance.objects.filter(student_id=student_id, date__month=m, date__year=y)
+            monthly_total = 0
+            for r in records:
+                monthly_total += get_effective_hours(r.am_time_in, r.am_time_out)
+                monthly_total += get_effective_hours(r.pm_time_in, r.pm_time_out)
+            monthly_hours = round(monthly_total, 2)
+            formatted_monthly_hours = format_hrs_mins(monthly_hours)
+        except (ValueError, TypeError):
+            pass
 
     # ===== TODAY LOGS =====
     def fmt(t):
@@ -369,10 +389,13 @@ def get_status(request):
         "today_logs": today_logs,
         "total_hours": total_hours,
         "formatted_total_hours": format_hrs_mins(total_hours),
+        "monthly_hours": monthly_hours,
+        "formatted_monthly_hours": formatted_monthly_hours,
         "total_required": total_required,
         "est_end_date": est_date_str,
         "profile_picture": profile_picture_url
     })
+
 
 
 def fmt(t):
@@ -385,7 +408,17 @@ def get_history(request):
 
     records = Attendance.objects.filter(
         student_id=student_id
-    ).order_by('-date')
+    )
+
+    month = request.GET.get("month")
+    year = request.GET.get("year")
+    if month and year:
+        try:
+            records = records.filter(date__month=int(month), date__year=int(year))
+        except (ValueError, TypeError):
+            pass
+
+    records = records.order_by('-date')
 
     history = []
 
@@ -752,11 +785,19 @@ def download_dtr(request):
     supervisor = request.GET.get("supervisor", "").strip()
     period = request.GET.get("period", "auto").strip()
 
-    # Use current month and year
+    # Use month and year from params or fallback to current
     now = timezone.localtime()
-    year = now.year
-    month = now.month
-    current_day = now.day
+    try:
+        month = int(request.GET.get("month", now.month))
+        year = int(request.GET.get("year", now.year))
+    except (ValueError, TypeError):
+        month = now.month
+        year = now.year
+
+    # Validation: month must be 1-12
+    if month < 1 or month > 12:
+        month = now.month
+
     month_name = calendar.month_name[month]
     
     # 15th/End of Month Cutoff Logic
