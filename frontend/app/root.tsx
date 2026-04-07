@@ -10,8 +10,8 @@ import AppTour from './components/AppTour';
 import type { Route } from './+types/root';
 import stylesheet from './app.css?url';
 import Navbar from './components/Navbar';
-import FastChat from './components/FastChat';
-import { MessageSquare, X } from 'lucide-react';
+
+import { X } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
 
@@ -82,35 +82,9 @@ export default function App() {
   const navigate = useNavigate();
   const [sessionExpired, setSessionExpired] = useState(false);
   const [runTour, setRunTour] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Poll for unread count (Intern side only)
-  useEffect(() => {
-    if (!showNavbar) return;
-    
-    const fetchUnread = async () => {
-      const token = localStorage.getItem('session_token') || localStorage.getItem('token');
-      if (!token) return;
-      try {
-        const resp = await fetch(`${API_URL}/api/chat/unread/`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (!resp.ok) return;
-        const contentType = resp.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const d = await resp.json();
-          if (d.unread_count !== undefined) setUnreadCount(d.unread_count);
-        }
-      } catch (err) {
-        console.error("Unread fetch error:", err);
-      }
-    };
 
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 10000);
-    return () => clearInterval(interval);
-  }, [showNavbar]);
 
   useEffect(() => {
     const firstVisit = localStorage.getItem('tour_done');
@@ -241,31 +215,7 @@ export default function App() {
       <Outlet />
       {showNavbar && <Navbar />}
 
-      {/* GLOBAL CHAT (Intern side only - hidden for admin dashboard) */}
-      {showNavbar && !location.pathname.includes('/admin') && (
-        <>
-          <button
-            onClick={() => setIsChatOpen(true)}
-            className="fixed bottom-20 right-6 w-14 h-14 bg-white border-[3px] border-green-900 flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(20,83,45,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all z-[9999] rounded-2xl active:scale-90"
-          >
-            <div className="relative pointer-events-none">
-              <MessageSquare size={28} className="text-green-900" strokeWidth={2.5} />
-              {(unreadCount || 0) > 0 && (
-                <span className="absolute -top-4 -right-4 bg-red-600 border-2 border-green-900 text-white text-[10px] w-6 h-6 rounded-full flex items-center justify-center font-black animate-bounce shadow-sm">
-                  {unreadCount}
-                </span>
-              )}
-            </div>
-          </button>
 
-          <FastChat 
-            peerId="admin" 
-            peerName="Administrator" 
-            isOpen={isChatOpen} 
-            onClose={() => setIsChatOpen(false)} 
-          />
-        </>
-      )}
 
       {sessionExpired && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-green-900/90">

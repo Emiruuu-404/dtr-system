@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, get_effective_hours, ChatMessage
+from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, get_effective_hours
 from django.contrib.auth.hashers import make_password, check_password
 import io
 from datetime import datetime, time, timedelta
@@ -1518,71 +1518,4 @@ def admin_export_csv(request):
 def ping_view(request):
     return Response({"status": "ok", "timestamp": timezone.now()})
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def admin_chat_send(request):
-    try:
-        data = request.data
-        sender_id = "admin" if request.user.is_staff else str(request.user.student_id).strip().lower()
-        receiver_id = str(data.get("receiver_id", "")).strip().lower()
-        message = data.get("message")
-
-        if not receiver_id or not message:
-            return Response({"error": "Missing fields"}, status=400)
-
-        # Simple restrict: if not staff, can only message 'admin'
-        if not request.user.is_staff and receiver_id != "admin":
-            return Response({"error": "Interns can only message admin"}, status=403)
-
-        msg = ChatMessage.objects.create(
-            sender_id=sender_id,
-            receiver_id=receiver_id,
-            message=message
-        )
-        return Response({"message": "Sent", "id": msg.id})
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def admin_chat_history(request):
-    try:
-        peer_id = str(request.GET.get("peer_id", "")).strip().lower()
-        if not peer_id:
-            return Response({"error": "Missing peer_id"}, status=400)
-
-        my_id = "admin" if request.user.is_staff else str(request.user.student_id).strip().lower()
-
-        # Restrict: if not staff, can only get history with 'admin'
-        if not request.user.is_staff and peer_id != "admin":
-            return Response({"error": "Unauthorized"}, status=403)
-
-        messages = ChatMessage.objects.filter(
-            (Q(sender_id=my_id) & Q(receiver_id=peer_id)) |
-            (Q(sender_id=peer_id) & Q(receiver_id=my_id))
-        ).order_by('timestamp')
-
-        # Optionally mark as read when fetching
-        ChatMessage.objects.filter(receiver_id=my_id, sender_id=peer_id, is_read=False).update(is_read=True)
-
-        data = [{
-            "id": m.id,
-            "sender": str(m.sender_id).strip().lower(),
-            "content": m.message,
-            "timestamp": m.timestamp.isoformat() if m.timestamp else None,
-            "is_own": str(m.sender_id).strip().lower() == my_id
-        } for m in messages]
-
-        return Response({"messages": data})
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def admin_chat_unread(request):
-    try:
-        my_id = "admin" if request.user.is_staff else str(request.user.student_id).strip().lower()
-        count = ChatMessage.objects.filter(receiver_id=my_id, is_read=False).count()
-        return Response({"unread_count": count})
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
+
