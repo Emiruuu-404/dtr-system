@@ -776,18 +776,13 @@ export default function History() {
                   return;
                 }
 
-                const formatDateTime = (time: string) => {
-                  if (!time) return null;
-                  return `${selectedDate} ${time}:00`;
-                };
-
                 const payload = {
                   student_id: localStorage.getItem('student_id'),
                   date: selectedDate,
-                  am_in: formatDateTime(String(formData.get('am_in') || '')),
-                  am_out: formatDateTime(String(formData.get('am_out') || '')),
-                  pm_in: formatDateTime(String(formData.get('pm_in') || '')),
-                  pm_out: formatDateTime(String(formData.get('pm_out') || '')),
+                  am_in: String(formData.get('am_in') || '') || null,
+                  am_out: String(formData.get('am_out') || '') || null,
+                  pm_in: String(formData.get('pm_in') || '') || null,
+                  pm_out: String(formData.get('pm_out') || '') || null,
                 };
 
                 // 3. START SAVING
