@@ -55,7 +55,15 @@ export default function Login() {
             localStorage.removeItem('no_remember');
         }
         
-        navigate('/', { replace: true });
+        // If admin, store admin token and redirect to admin dashboard
+        if (payload.is_staff) {
+          localStorage.setItem('admin_token', payload.session_token);
+          localStorage.setItem('admin_id', payload.student_id);
+          localStorage.setItem('admin_name', payload.name);
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
         return;
       }
 

@@ -53,7 +53,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import { API_URL } from './config';
 
-const hideNavbarRoutes = ['/login', '/register', '/forgot-password', '/admin/login', '/admin'];
+const hideNavbarRoutes = ['/login', '/register', '/forgot-password', '/admin'];
 const isAdminRoute = (path: string) => path.startsWith('/admin');
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity
 

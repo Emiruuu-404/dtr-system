@@ -36,6 +36,13 @@ export default function Dashboard() {
     const navigate = useNavigate();
 
     useEffect(() => {
+        // If admin is logged in, redirect to admin dashboard
+        const adminToken = localStorage.getItem("admin_token");
+        if (adminToken) {
+            navigate("/admin", { replace: true });
+            return;
+        }
+
         const id = localStorage.getItem("student_id");
         if (!id) {
             navigate("/login");

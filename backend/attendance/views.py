@@ -94,6 +94,7 @@ def login_view(request):
             "message": "Login successful",
             "student_id": user.student_id,
             "name": user.name,
+            "is_staff": user.is_staff,
             "session_token": str(token.access_token)
         })
     else:

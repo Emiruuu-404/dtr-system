@@ -35,7 +35,7 @@ export default function AdminDashboard() {
     useEffect(() => {
         const adminToken = localStorage.getItem("admin_token");
         if (!adminToken) {
-            navigate("/admin/login");
+            navigate("/login");
             return;
         }
 
@@ -59,7 +59,7 @@ export default function AdminDashboard() {
             .catch(err => {
                 console.error("Failed to fetch admin data", err);
                 localStorage.removeItem("admin_token");
-                navigate("/admin/login");
+                navigate("/login");
             });
 
 
@@ -151,7 +151,8 @@ export default function AdminDashboard() {
         localStorage.removeItem("token");
         localStorage.removeItem("session_token");
         localStorage.removeItem("student_id");
-        navigate("/admin/login");
+        localStorage.removeItem("name");
+        navigate("/login");
     };
 
     const handleAdminPwChange = async (e: React.FormEvent) => {
