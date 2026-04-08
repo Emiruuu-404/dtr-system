@@ -250,6 +250,7 @@ def get_leaderboards(request):
 
         leaderboard_data.append({
             "id": intern.id,
+            "student_id": intern.student_id,
             "name": intern.name,
             "hours": total_hours,
             "formatted_hours": format_hrs_mins(total_hours),
@@ -994,11 +995,26 @@ def get_profile(request):
         elif user.profile_picture:
             profile_picture_url = request.build_absolute_uri(user.profile_picture.url)
             
+        # Get extra info from Student master list if it exists
+        from .models import Student
+        course = ""
+        school = ""
+        try:
+            student_info = Student.objects.get(student_id__iexact=student_id)
+            course = student_info.course
+            school = student_info.school
+        except Student.DoesNotExist:
+            pass
+
         return JsonResponse({
             "name": user.name,
             "email": user.email,
             "student_id": user.student_id,
-            "profile_picture": profile_picture_url
+            "profile_picture": profile_picture_url,
+            "course": course,
+            "school": school,
+            "total_hours": round(user.total_hours, 2),
+            "formatted_total_hours": format_hrs_mins(user.total_hours)
         })
     except Intern.DoesNotExist:
         return JsonResponse({"error": "Account not found"}, status=404)
@@ -1018,22 +1034,40 @@ def upload_profile_picture(request):
     try:
         user = Intern.objects.get(student_id=student_id)
         
-        # PERSIST: save to file AND postgres blob fields
-        user.profile_picture = image
-        user.profile_picture_content_type = getattr(image, "content_type", "") or "image/jpeg"
-        image_bytes = image.read()
+        from PIL import Image
+        import io
+        
+        # Open and process image
+        img = Image.open(image)
+        
+        # Convert to RGB if necessary (rgba/p to rgb)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        
+        # Resize - thumbnails maintain aspect ratio
+        # Profile pics don't need to be huge
+        img.thumbnail((300, 300))
+        
+        # Save to buffer
+        output = io.BytesIO()
+        img.save(output, format="JPEG", quality=85, optimize=True)
+        image_bytes = output.getvalue()
+
+        # Update user fields
+        user.profile_picture_content_type = "image/jpeg"
         user.profile_picture_blob = image_bytes
         user.save()
         
-        # Prefer generating a BLOB based URL that works everywhere (local/render)
         profile_picture_url = request.build_absolute_uri(f"/api/profile-picture/{user.student_id}/")
 
         return JsonResponse({
-            "message": "Profile picture uploaded successfully",
+            "message": "Profile picture updated and optimized",
             "profile_picture": profile_picture_url
         })
     except Intern.DoesNotExist:
         return JsonResponse({"error": "Account not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": f"Error processing image: {str(e)}"}, status=500)
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_profile_picture_view(request, student_id):
@@ -1042,16 +1076,55 @@ def get_profile_picture_view(request, student_id):
     except Intern.DoesNotExist:
         raise Http404("Account not found")
 
-    if user.profile_picture_blob:
-        content_type = user.profile_picture_content_type or "image/jpeg"
-        return HttpResponse(bytes(user.profile_picture_blob), content_type=content_type)
+    from PIL import Image
+    import io
 
+    # OPTIMIZATION: If we have a blob, check if it's too large (>200KB)
+    # If it is, compress it on the fly and save it back to prevent future slow loads
+    if user.profile_picture_blob:
+        blob_size = len(user.profile_picture_blob)
+        
+        if blob_size > 200 * 1024:  # 200KB limit for auto-compression
+            try:
+                img = Image.open(io.BytesIO(user.profile_picture_blob))
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+                img.thumbnail((300, 300))
+                output = io.BytesIO()
+                img.save(output, format="JPEG", quality=85, optimize=True)
+                compressed_blob = output.getvalue()
+                
+                # Save optimized version back to DB
+                user.profile_picture_blob = compressed_blob
+                user.profile_picture_content_type = "image/jpeg"
+                user.save(update_fields=['profile_picture_blob', 'profile_picture_content_type'])
+                
+                return HttpResponse(compressed_blob, content_type="image/jpeg")
+            except Exception:
+                pass # Fallback to original if compression fails
+                
+        return HttpResponse(bytes(user.profile_picture_blob), content_type=user.profile_picture_content_type or "image/jpeg")
+
+    # MIGRATION: If we only have the file field, migrate it to compressed blob
+    # This is critical for Render (ephemeral storage)
     if user.profile_picture:
         try:
-            inferred = mimetypes.guess_type(user.profile_picture.name)[0] or "image/jpeg"
-            return FileResponse(user.profile_picture.open("rb"), content_type=inferred)
+            with user.profile_picture.open("rb") as f:
+                img = Image.open(f)
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+                img.thumbnail((300, 300))
+                output = io.BytesIO()
+                img.save(output, format="JPEG", quality=85, optimize=True)
+                compressed_blob = output.getvalue()
+                
+                user.profile_picture_blob = compressed_blob
+                user.profile_picture_content_type = "image/jpeg"
+                user.save(update_fields=['profile_picture_blob', 'profile_picture_content_type'])
+                
+                return HttpResponse(compressed_blob, content_type="image/jpeg")
         except Exception:
-            raise Http404("Internal image file not found")
+             raise Http404("Internal image file not found")
         
     raise Http404("No profile picture found")
 

@@ -160,11 +160,11 @@ export default function Reports() {
 
 
 
-  const monthlyHours = reportData?.monthly_hours || 0;
+  const totalHours = reportData?.total_hours || 0;
   const totalRequired = reportData?.total_required || 486;
   const progressPercent = Math.min(
     100,
-    Math.max(0, (monthlyHours / totalRequired) * 100)
+    Math.max(0, (totalHours / totalRequired) * 100)
   );
   const currentMonthYear = new Date().toLocaleDateString('en-US', {
     month: 'long',
@@ -253,29 +253,18 @@ export default function Reports() {
               </p>
             </div>
 
-            <div className="w-full bg-green-50 border-[3px] border-green-900 h-10 mb-8 overflow-hidden relative shadow-[2px_2px_0px_0px_rgba(20,83,45,1)]">
+            <div className="w-full bg-green-100 border-2 border-green-900 h-6 mb-8 overflow-hidden relative">
               <div
-                className="h-full bg-gradient-to-r from-green-600 to-green-500 border-r-[3px] border-green-900 relative transition-all duration-1000 ease-out"
+                className="bg-green-600 h-full border-r-2 border-green-900 relative transition-all duration-1000"
                 style={{ width: `${progressPercent}%` }}
               >
-                {/* Animated Stripes Pattern */}
-                <div 
-                  className="absolute inset-0 opacity-30 animate-progress-stripes"
+                <div
+                  className="absolute inset-0 opacity-20"
                   style={{
-                    backgroundImage: 'linear-gradient(45deg, rgba(255,255,255,0.4) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.4) 75%, transparent 75%, transparent)',
-                    backgroundSize: '40px 40px'
+                    backgroundImage:
+                      'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,1) 5px, rgba(0,0,0,1) 10px)',
                   }}
-                />
-                
-                {/* Subtle Glow/Highlight */}
-                <div className="absolute top-0 left-0 w-full h-1/3 bg-white/20"></div>
-              </div>
-
-              {/* Progress Text overlay (Optional, but looks premium) */}
-              <div className="absolute inset-0 flex items-center justify-center mix-blend-difference pointer-events-none">
-                 <span className="text-[10px] font-black text-white/40 tracking-[0.3em] uppercase">
-                   {Math.round(progressPercent)}% COMPLETE
-                 </span>
+                ></div>
               </div>
             </div>
 

@@ -67,9 +67,17 @@ export default function Dashboard() {
                     </h1>
                     <p className="text-green-800">Here's your OJT summary today.</p>
                 </div>
-                {statusData?.profile_picture && (
-                    <div className="w-16 h-16 rounded-full border-2 border-green-900 overflow-hidden shadow-[2px_2px_0px_0px_rgba(20,83,45,1)]">
-                        <img src={statusData.profile_picture} alt="Profile" className="w-full h-full object-cover" />
+                {!statusData ? (
+                    <div className="w-16 h-16 rounded-full border-2 border-green-900 bg-gray-200 animate-pulse shadow-[2px_2px_0px_0px_rgba(20,83,45,1)]"></div>
+                ) : statusData?.profile_picture && (
+                    <div className="w-16 h-16 rounded-full border-2 border-green-900 overflow-hidden shadow-[2px_2px_0px_0px_rgba(20,83,45,1)] bg-green-50">
+                        <img 
+                            src={statusData.profile_picture} 
+                            alt="Profile" 
+                            className="w-full h-full object-cover" 
+                            onLoad={(e) => e.currentTarget.classList.add('opacity-100')}
+                            loading="lazy"
+                        />
                     </div>
                 )}
             </header>
