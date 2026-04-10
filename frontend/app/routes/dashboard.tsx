@@ -81,10 +81,12 @@ export default function Dashboard() {
     // Use name from API if loaded, otherwise use fallbackName (which updates securely after hydration)
     const userName = statusData?.name || fallbackName;
 
-    // Upcoming PH holidays
+    // PH holidays this month only
     const upcomingHolidays = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
         return PH_HOLIDAYS_2026
             .map(h => {
                 const hDate = new Date(h.date + "T00:00:00");
@@ -92,9 +94,8 @@ export default function Dashboard() {
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 return { ...h, daysUntil: diffDays, dateObj: hDate };
             })
-            .filter(h => h.daysUntil >= 0)
-            .sort((a, b) => a.daysUntil - b.daysUntil)
-            .slice(0, 4);
+            .filter(h => h.dateObj.getMonth() === currentMonth && h.dateObj.getFullYear() === currentYear)
+            .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
     }, []);
 
     return (
@@ -160,7 +161,7 @@ export default function Dashboard() {
                             <div className="w-8 h-8 bg-amber-100 flex items-center justify-center border-2 border-amber-600 shrink-0">
                                 <Flag className="text-amber-700" strokeWidth={2.5} size={16} />
                             </div>
-                            <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest">Upcoming Holidays</h3>
+                            <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest">Holidays This Month</h3>
                         </div>
                         <div className="space-y-2">
                             {upcomingHolidays.map((h) => (
