@@ -1119,7 +1119,7 @@ export default function AdminDashboard() {
                             <h3 className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-wide">
                                 {feedbackModal.type === 'error' ? 'Error' : 'Success'}
                             </h3>
-                            <p className="text-gray-700 font-bold mb-8 uppercase tracking-wide text-sm">
+                            <p className="text-gray-700 font-bold mb-8 tracking-wide text-sm whitespace-pre-line">
                                 {feedbackModal.message}
                             </p>
                             <button

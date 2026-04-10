@@ -1729,7 +1729,12 @@ def cron_send_reminders(request):
         sent_to.append(intern.name)
 
     if not email_messages:
-        return Response({"message": f"No {reminder_type} reminders needed.", "sent": 0})
+        return Response({
+            "message": f"No {reminder_type} reminders needed. All active interns have already completed their logs for today.",
+            "sent": 0,
+            "sent_to": [],
+            "skipped": []
+        })
 
     try:
         connection = get_connection()
@@ -1741,7 +1746,8 @@ def cron_send_reminders(request):
                 EmailLog.objects.create(intern=target, type=reminder_type, status='success')
             except: pass
             
-        return Response({"message": f"Sent {count} {reminder_type} reminder(s)", "sent": count, "sent_to": sent_to})
+        success_msg = f"Dispatched {count} {reminder_type} reminder{'s' if count > 1 else ''} successfully."
+        return Response({"message": success_msg, "sent": count, "sent_to": sent_to})
     except Exception as e:
         # Log failed attempt if we had a target
         for intern in active_interns:
@@ -1821,7 +1827,7 @@ def send_reminder_emails(request):
 
     if not email_messages:
         return Response({
-            "message": f"No {reminder_type} reminders needed. All interns have already logged.",
+            "message": f"No {reminder_type} reminders needed. All active interns are up-to-date.",
             "sent": 0,
             "sent_to": [],
             "skipped": skipped
@@ -1834,13 +1840,17 @@ def send_reminder_emails(request):
         for msg in email_messages:
             try:
                 target = Intern.objects.get(email=msg.to[0])
-                # If target_student_id is present, it's a manual reminder
                 log_type = "manual" if target_student_id else reminder_type
                 EmailLog.objects.create(intern=target, type=log_type, status='success')
             except: pass
 
+        if target_student_id:
+            msg_text = f"Official reminder shared with {active_interns[0].name} successfully."
+        else:
+            msg_text = f"System-wide dispatch complete. {count} reminder{'s' if count > 1 else ''} delivered."
+
         return Response({
-            "message": f"Successfully sent {count} {reminder_type} reminder(s)!",
+            "message": msg_text,
             "sent": count,
             "sent_to": sent_to,
             "skipped": skipped

@@ -11,15 +11,20 @@ def get_reminder_html(intern_name, reminder_type, date_str):
     mid_green = "#166534"   # green-800
     bg_gray = "#f3f4f6"
     
+    # Base64 SVG Line-art Icon (Clock)
+    clock_svg = f"""<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='{dark_green}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>"""
+    import base64
+    clock_icon = f"data:image/svg+xml;base64,{base64.b64encode(clock_svg.encode()).decode()}"
+
     if reminder_type == "morning":
-        icon = "🌅"
+        icon_text = "AM SHIFT"
         action = "TIME IN"
-        accent_color = "#15803d"  # green-700
+        accent_color = "#15803d"
         message = "Start your day right! Record your arrival in the system."
     else:
-        icon = "🌇"
+        icon_text = "PM SHIFT"
         action = "TIME OUT"
-        accent_color = "#b91c1c"  # red-700
+        accent_color = "#b91c1c"
         message = "Ensure your PM shift is properly recorded before you leave."
 
     html = f"""
@@ -39,14 +44,20 @@ def get_reminder_html(intern_name, reminder_type, date_str):
                         
                         <!-- Header Bar -->
                         <tr>
-                            <td style="background-color:{dark_green}; padding:20px 30px;">
+                            <td style="background-color:{dark_green}; padding:18px 30px;">
                                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                                     <tr>
-                                        <td style="font-size:18px; color:#ffffff; font-weight:900; letter-spacing:3px; text-transform:uppercase;">
+                                        <td style="font-size:16px; color:#ffffff; font-weight:900; letter-spacing:3px; text-transform:uppercase; vertical-align:middle;">
                                             OJT DTR SYSTEM
                                         </td>
-                                        <td align="right" style="color:#ffffff; font-size:20px;">
-                                            {icon}
+                                        <td align="right" style="vertical-align:middle;">
+                                            <table role="presentation" cellspacing="0" cellpadding="0">
+                                                <tr>
+                                                    <td style="background-color:#ffffff; border:2px solid {dark_green}; padding:4px 10px; font-size:10px; font-weight:900; letter-spacing:1px; color:{dark_green}; text-transform:uppercase;">
+                                                        {icon_text}
+                                                    </td>
+                                                </tr>
+                                            </table>
                                         </td>
                                     </tr>
                                 </table>
@@ -56,9 +67,19 @@ def get_reminder_html(intern_name, reminder_type, date_str):
                         <!-- Content Area -->
                         <tr>
                             <td style="padding:40px 35px;">
-                                <h2 style="margin:0 0 10px 0; font-size:24px; font-weight:900; color:{dark_green}; text-transform:uppercase; letter-spacing:-0.5px;">
-                                    {reminder_type} Reminder
-                                </h2>
+                                <table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:15px;">
+                                    <tr>
+                                        <td style="padding-right:10px; vertical-align:middle;">
+                                            <img src="{clock_icon}" width="24" height="24" alt="Icon" style="display:block;">
+                                        </td>
+                                        <td style="vertical-align:middle;">
+                                            <h2 style="margin:0; font-size:24px; font-weight:900; color:{dark_green}; text-transform:uppercase; letter-spacing:-0.5px;">
+                                                {reminder_type} Reminder
+                                            </h2>
+                                        </td>
+                                    </tr>
+                                </table>
+
                                 <p style="margin:0 0 25px 0; font-size:16px; font-weight:600; color:#4b5563;">
                                     Hello, <span style="color:{dark_green}; text-decoration:underline;">{intern_name}</span>!
                                 </p>
@@ -76,15 +97,15 @@ def get_reminder_html(intern_name, reminder_type, date_str):
                                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:35px;">
                                     <tr>
                                         <td width="50%" style="padding-right:10px;">
-                                            <div style="border:2px solid {dark_green}; padding:12px; background-color:#ffffff;">
-                                                <p style="margin:0; font-size:10px; font-weight:900; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">Date</p>
-                                                <p style="margin:4px 0 0 0; font-size:14px; font-weight:800; color:{dark_green};">{date_str}</p>
+                                            <div style="border:2px solid {dark_green}; padding:15px; background-color:#ffffff;">
+                                                <p style="margin:0; font-size:10px; font-weight:900; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">📅 OJT Date</p>
+                                                <p style="margin:6px 0 0 0; font-size:14px; font-weight:800; color:{dark_green};">{date_str}</p>
                                             </div>
                                         </td>
                                         <td width="50%" style="padding-left:10px;">
-                                            <div style="border:2px solid {dark_green}; padding:12px; background-color:#ffffff;">
-                                                <p style="margin:0; font-size:10px; font-weight:900; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">Status</p>
-                                                <p style="margin:4px 0 0 0; font-size:14px; font-weight:800; color:{accent_color};">{action} PENDING</p>
+                                            <div style="border:2px solid {dark_green}; padding:15px; background-color:#ffffff;">
+                                                <p style="margin:0; font-size:10px; font-weight:900; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">🔖 Request Status</p>
+                                                <p style="margin:6px 0 0 0; font-size:14px; font-weight:800; color:{accent_color}; uppercase">{action} PENDING</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -132,4 +153,6 @@ def get_reminder_html(intern_name, reminder_type, date_str):
     </body>
     </html>
     """
+    return html
+
     return html
