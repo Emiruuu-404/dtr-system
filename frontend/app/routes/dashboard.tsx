@@ -1,8 +1,31 @@
-import { useState, useEffect } from "react";
-import { Calendar, Clock as ClockIcon, AlertCircle, CheckCircle } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Calendar, Clock as ClockIcon, AlertCircle, CheckCircle, PartyPopper, Flag } from "lucide-react";
 import { useNavigate } from "react-router";
 import { API_URL } from "../config";
 
+// 2026 Philippine Holidays (Proclamation No. 1006)
+const PH_HOLIDAYS_2026 = [
+    // Regular Holidays
+    { date: "2026-01-01", name: "New Year's Day", type: "regular" },
+    { date: "2026-04-02", name: "Maundy Thursday", type: "regular" },
+    { date: "2026-04-03", name: "Good Friday", type: "regular" },
+    { date: "2026-04-09", name: "Araw ng Kagitingan", type: "regular" },
+    { date: "2026-05-01", name: "Labor Day", type: "regular" },
+    { date: "2026-06-12", name: "Independence Day", type: "regular" },
+    { date: "2026-08-31", name: "National Heroes Day", type: "regular" },
+    { date: "2026-11-30", name: "Bonifacio Day", type: "regular" },
+    { date: "2026-12-25", name: "Christmas Day", type: "regular" },
+    { date: "2026-12-30", name: "Rizal Day", type: "regular" },
+    // Special Non-Working Days
+    { date: "2026-02-17", name: "Chinese New Year", type: "special" },
+    { date: "2026-04-04", name: "Black Saturday", type: "special" },
+    { date: "2026-08-21", name: "Ninoy Aquino Day", type: "special" },
+    { date: "2026-11-01", name: "All Saints' Day", type: "special" },
+    { date: "2026-11-02", name: "All Souls' Day", type: "special" },
+    { date: "2026-12-08", name: "Immaculate Conception", type: "special" },
+    { date: "2026-12-24", name: "Christmas Eve", type: "special" },
+    { date: "2026-12-31", name: "Last Day of the Year", type: "special" },
+];
 export default function Dashboard() {
     const [statusData, setStatusData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
@@ -57,6 +80,22 @@ export default function Dashboard() {
 
     // Use name from API if loaded, otherwise use fallbackName (which updates securely after hydration)
     const userName = statusData?.name || fallbackName;
+
+    // Upcoming PH holidays
+    const upcomingHolidays = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return PH_HOLIDAYS_2026
+            .map(h => {
+                const hDate = new Date(h.date + "T00:00:00");
+                const diffTime = hDate.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return { ...h, daysUntil: diffDays, dateObj: hDate };
+            })
+            .filter(h => h.daysUntil >= 0)
+            .sort((a, b) => a.daysUntil - b.daysUntil)
+            .slice(0, 4);
+    }, []);
 
     return (
         <div className="p-6 max-w-md mx-auto">
@@ -113,6 +152,66 @@ export default function Dashboard() {
                         </div>
                     )}
                 </div>
+
+                {/* Upcoming Philippine Holidays */}
+                {upcomingHolidays.length > 0 && (
+                    <div className="bg-white p-5 border-2 border-green-900">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 bg-amber-100 flex items-center justify-center border-2 border-amber-600 shrink-0">
+                                <Flag className="text-amber-700" strokeWidth={2.5} size={16} />
+                            </div>
+                            <h3 className="font-black text-gray-900 text-sm uppercase tracking-widest">Upcoming Holidays</h3>
+                        </div>
+                        <div className="space-y-2">
+                            {upcomingHolidays.map((h) => (
+                                <div
+                                    key={h.date}
+                                    className={`flex items-center justify-between p-3 border-2 ${
+                                        h.daysUntil === 0
+                                            ? "bg-amber-50 border-amber-500 animate-pulse"
+                                            : "bg-gray-50 border-gray-200"
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="flex flex-col items-center shrink-0 w-10">
+                                            <span className="text-[10px] font-black text-gray-400 uppercase">
+                                                {h.dateObj.toLocaleString('en-US', { month: 'short' })}
+                                            </span>
+                                            <span className="text-lg font-black text-gray-900 leading-none">
+                                                {h.dateObj.getDate()}
+                                            </span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-gray-900 text-sm truncate">{h.name}</p>
+                                            <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 inline-block mt-0.5 ${
+                                                h.type === 'regular'
+                                                    ? 'bg-red-100 text-red-700 border border-red-300'
+                                                    : 'bg-amber-100 text-amber-700 border border-amber-300'
+                                            }`}>
+                                                {h.type === 'regular' ? 'Regular Holiday' : 'Special Non-Working'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="shrink-0 ml-2 text-right">
+                                        {h.daysUntil === 0 ? (
+                                            <span className="bg-amber-500 text-white px-2 py-1 text-[10px] font-black uppercase tracking-wider border border-amber-700">
+                                                Today!
+                                            </span>
+                                        ) : h.daysUntil === 1 ? (
+                                            <span className="bg-green-600 text-white px-2 py-1 text-[10px] font-black uppercase tracking-wider border border-green-800">
+                                                Tomorrow
+                                            </span>
+                                        ) : (
+                                            <span className="bg-gray-200 text-gray-700 px-2 py-1 text-[10px] font-black tracking-wider border border-gray-300">
+                                                {h.daysUntil}d
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div className="bg-white p-6 border-2 border-green-900">
                     <div className="flex items-center gap-3 mb-4">

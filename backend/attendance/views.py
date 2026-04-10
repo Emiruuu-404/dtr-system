@@ -16,6 +16,29 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from collections import defaultdict
+from datetime import date as date_type
+
+# 2026 Philippine Holidays (Regular + Special Non-Working)
+PH_HOLIDAYS_2026 = {
+    date_type(2026, 1, 1),   # New Year's Day
+    date_type(2026, 2, 17),  # Chinese New Year
+    date_type(2026, 4, 2),   # Maundy Thursday
+    date_type(2026, 4, 3),   # Good Friday
+    date_type(2026, 4, 4),   # Black Saturday
+    date_type(2026, 4, 9),   # Araw ng Kagitingan
+    date_type(2026, 5, 1),   # Labor Day
+    date_type(2026, 6, 12),  # Independence Day
+    date_type(2026, 8, 21),  # Ninoy Aquino Day
+    date_type(2026, 8, 31),  # National Heroes Day
+    date_type(2026, 11, 1),  # All Saints' Day
+    date_type(2026, 11, 2),  # All Souls' Day
+    date_type(2026, 11, 30), # Bonifacio Day
+    date_type(2026, 12, 8),  # Immaculate Conception
+    date_type(2026, 12, 24), # Christmas Eve
+    date_type(2026, 12, 25), # Christmas Day
+    date_type(2026, 12, 30), # Rizal Day
+    date_type(2026, 12, 31), # Last Day of the Year
+}
 
 
 def format_hrs_mins(decimal_hours):
@@ -368,12 +391,35 @@ def get_status(request):
     if remaining_hours == 0:
         est_date_str = "Completed"
     else:
-        remaining_days = math.ceil(remaining_hours / 8)
+        # Use average hours per working day from actual attendance history
+        days_worked = Attendance.objects.filter(
+            student_id=student_id
+        ).filter(
+            Q(am_time_in__isnull=False) | Q(pm_time_in__isnull=False)
+        ).count()
+        
+        avg_hours_per_day = (total_hours / days_worked) if days_worked > 0 else 8
+        avg_hours_per_day = max(min(avg_hours_per_day, 12), 1)  # Clamp between 1-12
+        
+        remaining_days = math.ceil(remaining_hours / avg_hours_per_day)
+        
+        # Check if today is a working day (not a holiday)
+        is_today_workday = (
+            today not in PH_HOLIDAYS_2026 and (
+                today.weekday() < 5 or
+                (today.weekday() == 5 and has_saturday) or
+                (today.weekday() == 6 and has_sunday)
+            )
+        )
+        
+        # Include today as one of the remaining working days
         est = today
-        added_days = 0
+        added_days = 1 if is_today_workday else 0
+        
         while added_days < remaining_days:
             est += timedelta(days=1)
-            # Add day if it's a weekday, or if it's a weekend and the intern has a history of working on that day
+            if est in PH_HOLIDAYS_2026:
+                continue  # Skip holidays
             if est.weekday() < 5 or (est.weekday() == 5 and has_saturday) or (est.weekday() == 6 and has_sunday):
                 added_days += 1
         est_date_str = est.strftime("%b %d, %Y")

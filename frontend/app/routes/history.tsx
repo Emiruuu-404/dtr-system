@@ -149,17 +149,32 @@ export default function History() {
   const groupedByWeek = useMemo(() => {
     const groups: { [week: string]: any[] } = {};
 
+    // Helper: get Monday-based week number within the month
+    const getWeekOfMonth = (date: Date) => {
+      // Find the first day of the month
+      const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+      // Get the Monday of the week containing the 1st
+      const firstMonday = new Date(firstOfMonth);
+      const dayOfWeek = firstOfMonth.getDay(); // 0=Sun, 1=Mon...
+      // Adjust to previous Monday (or same day if already Monday)
+      const offset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      firstMonday.setDate(firstOfMonth.getDate() + offset);
+
+      // Calculate which week this date falls in
+      const diffDays = Math.floor((date.getTime() - firstMonday.getTime()) / (1000 * 60 * 60 * 24));
+      return Math.floor(diffDays / 7) + 1;
+    };
+
     filteredRecords.forEach((r) => {
-      // Mas safe na paraan para i-parse ang "March 13, 2026"
       const cleanDate = r.date.replace(',', '');
       const d = new Date(cleanDate);
 
       if (isNaN(d.getTime())) {
-        const key = 'Other'; // Imbes na "Unknown" para hindi mag-clash
+        const key = 'Other';
         if (!groups[key]) groups[key] = [];
         groups[key].push(r);
       } else {
-        const weekNum = Math.ceil(d.getDate() / 7);
+        const weekNum = getWeekOfMonth(d);
         const key = `Week ${weekNum}`;
         if (!groups[key]) groups[key] = [];
         groups[key].push(r);
