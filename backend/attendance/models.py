@@ -46,6 +46,7 @@ class Intern(AbstractBaseUser, PermissionsMixin):
     
     # NEW: Cached total hours for performance
     total_hours = models.FloatField(default=0.0)
+    required_hours = models.FloatField(default=486.0)
     
     objects = InternManager()
 
@@ -152,6 +153,41 @@ class HistoryRecord(models.Model):
     hours = models.FloatField(default=0.0)
     status = models.CharField(max_length=50, default="Completed")
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Holiday(models.Model):
+    name = models.CharField(max_length=200)
+    date = models.DateField()
+    
+    class Meta:
+        ordering = ['date']
+
+    def __str__(self):
+        return f"{self.date} - {self.name}"
+
+class EmailLog(models.Model):
+    TYPES = [
+        ('morning', 'Morning Time-In'),
+        ('afternoon', 'Afternoon Time-Out'),
+        ('manual', 'Manual Reminder'),
+    ]
+    STATUSES = [
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+    ]
+    
+    intern = models.ForeignKey(Intern, on_delete=models.CASCADE, related_name="email_logs")
+    type = models.CharField(max_length=20, choices=TYPES)
+    status = models.CharField(max_length=10, choices=STATUSES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    error_message = models.TextField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.type} to {self.intern.name} on {self.timestamp}"
+
 
 
 

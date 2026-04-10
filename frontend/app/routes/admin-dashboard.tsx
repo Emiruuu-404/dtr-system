@@ -14,6 +14,12 @@ export default function AdminDashboard() {
     const [actionLoading, setActionLoading] = useState(false);
     const [sendingReminders, setSendingReminders] = useState(false);
     const [editingEmail, setEditingEmail] = useState<string | null>(null);
+    const [editingHours, setEditingHours] = useState<string | null>(null);
+    const [holidays, setHolidays] = useState<{id: any, name: string, date: string}[]>([]);
+    const [fixedHolidays, setFixedHolidays] = useState<any[]>([]);
+    const [emailLogs, setEmailLogs] = useState<any[]>([]);
+    const [newHolidayName, setNewHolidayName] = useState("");
+    const [newHolidayDate, setNewHolidayDate] = useState("");
     
 
     
@@ -34,37 +40,57 @@ export default function AdminDashboard() {
 
     const navigate = useNavigate();
 
+    const fetchHolidays = async () => {
+        try {
+            const adminToken = localStorage.getItem("admin_token");
+            const res = await fetch(`${API_URL}/api/holidays/`, {
+                headers: { 'Authorization': `Bearer ${adminToken}` }
+            });
+            const d = await res.json();
+            if (res.ok) {
+                setHolidays(d.holidays);
+                setFixedHolidays(d.fixed_holidays);
+            }
+        } catch (e) {}
+    };
+
+    const fetchLogs = async () => {
+        try {
+            const adminToken = localStorage.getItem("admin_token");
+            const res = await fetch(`${API_URL}/api/admin/email-logs/`, {
+                headers: { 'Authorization': `Bearer ${adminToken}` }
+            });
+            const d = await res.json();
+            if (res.ok) setEmailLogs(d.logs);
+        } catch (e) {}
+    };
+
+    const fetchDashboard = async () => {
+        const adminToken = localStorage.getItem("admin_token");
+        try {
+            const res = await fetch(`${API_URL}/api/admin-dashboard/`, {
+                headers: { "Authorization": `Bearer ${adminToken}` }
+            });
+            if (!res.ok) throw new Error("Unauthorized");
+            const data = await res.json();
+            setData(data);
+            setLoading(false);
+        } catch (err) {
+            console.error("Failed to fetch admin data", err);
+            localStorage.removeItem("admin_token");
+            navigate("/login");
+        }
+    };
+
     useEffect(() => {
         const adminToken = localStorage.getItem("admin_token");
         if (!adminToken) {
             navigate("/login");
             return;
         }
-
-        Promise.all([
-            fetch(`${API_URL}/api/admin-dashboard/`, {
-                headers: {
-                    "Authorization": `Bearer ${adminToken}`
-                }
-            }).then(res => {
-                if (!res.ok) {
-                    throw new Error("Unauthorized");
-                }
-                return res.json();
-            }),
-            new Promise(resolve => setTimeout(resolve, 800))
-        ])
-            .then(([data]) => {
-                setData(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error("Failed to fetch admin data", err);
-                localStorage.removeItem("admin_token");
-                navigate("/login");
-            });
-
-
+        fetchDashboard();
+        fetchHolidays();
+        fetchLogs();
     }, []);
 
     if (loading) {
@@ -516,6 +542,114 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
+            {/* TAB CONTENT: HOLIDAYS & LOGS */}
+            {activeTab === "holidays" && (
+                <div className="p-8 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="bg-white p-6 border-4 border-green-900 shadow-[8px_8px_0px_0px_rgba(6,78,59,1)]">
+                        <h3 className="font-black text-green-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-green-600"></span> Add Custom Holiday
+                        </h3>
+                        <div className="flex flex-wrap gap-4">
+                            <div className="flex-1 min-w-[300px]">
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Holiday Name</label>
+                                <input type="text" value={newHolidayName} onChange={e=>setNewHolidayName(e.target.value)} placeholder="e.g. University Founding Anniversary" className="w-full border-2 border-green-900 px-4 py-3 font-bold focus:bg-green-50 focus:outline-none" />
+                            </div>
+                            <div className="w-48">
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Date</label>
+                                <input type="date" value={newHolidayDate} onChange={e=>setNewHolidayDate(e.target.value)} className="w-full border-2 border-green-900 px-4 py-3 font-bold focus:bg-green-50 focus:outline-none" />
+                            </div>
+                            <button 
+                                onClick={async () => {
+                                    const res = await fetch(`${API_URL}/api/holidays/add/`, {
+                                        method: "POST",
+                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem("admin_token")}` },
+                                        body: JSON.stringify({ name: newHolidayName, date: newHolidayDate })
+                                    });
+                                    if (res.ok) {
+                                        setNewHolidayName(""); setNewHolidayDate(""); fetchHolidays();
+                                        setFeedbackModal({ show: true, type: 'success', message: "Holiday added successfully" });
+                                    }
+                                }}
+                                className="self-end bg-green-900 text-white font-black px-8 py-3 uppercase tracking-widest hover:bg-green-800 transition-colors"
+                            >Save Holiday</button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white border-2 border-green-900 p-6">
+                            <h3 className="font-black text-green-900 uppercase text-sm mb-4">Custom Holidays</h3>
+                            <div className="space-y-2">
+                                {holidays.length === 0 && <p className="text-gray-400 italic text-sm">No custom holidays added.</p>}
+                                {holidays.map(h => (
+                                    <div key={h.id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200">
+                                        <div>
+                                            <p className="font-bold text-green-900">{h.name}</p>
+                                            <p className="text-xs text-gray-500">{new Date(h.date).toLocaleDateString()}</p>
+                                        </div>
+                                        <button onClick={async () => {
+                                            const res = await fetch(`${API_URL}/api/holidays/delete/${h.id}/`, {
+                                                method: "DELETE",
+                                                headers: { 'Authorization': `Bearer ${localStorage.getItem("admin_token")}` }
+                                            });
+                                            if (res.ok) fetchHolidays();
+                                        }} className="text-rose-600 hover:text-rose-800 font-black text-[10px] uppercase">Remove</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="bg-white border-2 border-gray-300 p-6 opacity-60">
+                            <h3 className="font-black text-gray-400 uppercase text-sm mb-4">Fixed National Holidays (2026)</h3>
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                {fixedHolidays.map(h => (
+                                    <div key={h.id} className="p-2 border-b border-gray-100 flex justify-between text-xs font-bold text-gray-500 uppercase">
+                                        <span>{h.name}</span>
+                                        <span className="text-gray-300">{new Date(h.date).toLocaleDateString()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === "logs" && (
+                <div className="p-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="bg-white border-4 border-green-900 overflow-hidden shadow-[8px_8px_0px_0px_rgba(6,78,59,1)]">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-green-900 text-white uppercase text-[10px] font-black tracking-widest">
+                                <tr>
+                                    <th className="px-6 py-4">Timestamp</th>
+                                    <th className="px-6 py-4">Recipient</th>
+                                    <th className="px-6 py-4">Type</th>
+                                    <th className="px-6 py-4">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y-2 divide-gray-100">
+                                {emailLogs.length === 0 && (
+                                    <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-400 italic font-bold">No email logs found.</td></tr>
+                                )}
+                                {emailLogs.map(log => (
+                                    <tr key={log.id} className="hover:bg-green-50/30 transition-colors">
+                                        <td className="px-6 py-4 text-xs font-bold text-gray-400">{log.timestamp}</td>
+                                        <td className="px-6 py-4 text-sm font-black text-green-900 uppercase underline decoration-green-200">{log.intern_name}</td>
+                                        <td className="px-6 py-4 text-xs font-black uppercase text-gray-500">{log.type}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full ${log.status === 'success' ? 'bg-green-500' : 'bg-rose-500'}`}></span>
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${log.status === 'success' ? 'text-green-600' : 'text-rose-600'}`}>
+                                                    {log.status}
+                                                </span>
+                                                {log.error && <span className="text-[10px] text-rose-300 font-bold truncate max-w-[200px]" title={log.error}>({log.error})</span>}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {selectedIntern && (
                 <div className="fixed inset-0 bg-green-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white max-w-5xl w-full max-h-[90vh] flex flex-col border-4 border-green-900 shadow-[12px_12px_0px_0px_rgba(6,78,59,1)] relative">
@@ -527,7 +661,51 @@ export default function AdminDashboard() {
                                     {selectedIntern.name}
                                     {!selectedIntern.is_active && <span className="bg-rose-100 text-rose-800 border-2 border-rose-900 px-2 py-0.5 text-xs">OFFLINE</span>}
                                 </h2>
-                                <p className="text-green-700 font-bold uppercase tracking-widest text-sm mt-1">{selectedIntern.student_id} • {selectedIntern.formatted_total_hours || selectedIntern.total_hours} Rendered</p>
+                                <div className="flex items-center gap-3">
+                                    <p className="text-green-700 font-bold uppercase tracking-widest text-sm mt-1">
+                                        {selectedIntern.student_id} • {selectedIntern.formatted_total_hours} Rendered
+                                    </p>
+                                    <div className="h-4 w-[2px] bg-green-200 mt-1"></div>
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <span className="text-xs font-black text-green-900 uppercase tracking-tighter">Goal:</span>
+                                        {editingHours !== null ? (
+                                            <div className="flex gap-1">
+                                                <input 
+                                                    type="number" 
+                                                    value={editingHours}
+                                                    onChange={e => setEditingHours(e.target.value)}
+                                                    className="w-16 border-2 border-green-900 px-1 text-xs font-bold focus:outline-none"
+                                                    autoFocus
+                                                />
+                                                <button 
+                                                    onClick={async () => {
+                                                        const adminToken = localStorage.getItem("admin_token");
+                                                        const res = await fetch(`${API_URL}/api/admin-actions/`, {
+                                                            method: "POST",
+                                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+                                                            body: JSON.stringify({ student_id: selectedIntern.student_id, action: "update_required_hours", required_hours: editingHours })
+                                                        });
+                                                        const d = await res.json();
+                                                        if (res.ok) {
+                                                            setSelectedIntern({...selectedIntern, required_hours: d.required_hours});
+                                                            setData({...data, interns: data.interns.map((i: any) => i.student_id === selectedIntern.student_id ? {...i, required_hours: d.required_hours} : i)});
+                                                            setFeedbackModal({ show: true, type: 'success', message: d.message });
+                                                        } else {
+                                                            setFeedbackModal({ show: true, type: 'error', message: d.error });
+                                                        }
+                                                        setEditingHours(null);
+                                                    }}
+                                                    className="text-[9px] font-black bg-green-900 text-white px-1 uppercase"
+                                                >Save</button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setEditingHours(selectedIntern.required_hours.toString())}>
+                                                <span className="text-sm font-black text-green-900">{selectedIntern.required_hours}h</span>
+                                                <span className="text-[9px] font-black text-green-600 uppercase opacity-0 group-hover:opacity-100 transition-opacity">Change</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-2 mt-2">
                                     {editingEmail !== null ? (
                                         <>
@@ -663,19 +841,10 @@ export default function AdminDashboard() {
                             </div>
 
                             {/* TABS */}
-                            <div className="flex gap-4 border-b-2 border-gray-300">
-                                <button 
-                                    onClick={() => setActiveTab('history')}
-                                    className={`px-4 py-2 font-black uppercase tracking-widest text-sm border-b-4 ${activeTab === 'history' ? 'border-green-900 text-green-900' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                                >
-                                    Attendance & Edits
-                                </button>
-                                <button 
-                                    onClick={() => setActiveTab('reports')}
-                                    className={`px-4 py-2 font-black uppercase tracking-widest text-sm border-b-4 ${activeTab === 'reports' ? 'border-green-900 text-green-900' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                                >
-                                    Accomplishment Reports
-                                </button>
+                            <div className="flex border-b-4 border-green-900">
+                                <button onClick={() => setActiveTab("history")} className={`px-6 py-4 font-black uppercase tracking-widest text-sm transition-all ${activeTab === 'history' ? 'bg-green-900 text-white shadow-[inset_0_-4px_0_0_#ffffff]' : 'text-green-900 hover:bg-green-50'}`}>Master Roster</button>
+                                <button onClick={() => { setActiveTab("holidays"); fetchHolidays(); }} className={`px-6 py-4 font-black uppercase tracking-widest text-sm transition-all ${activeTab === 'holidays' ? 'bg-green-900 text-white shadow-[inset_0_-4px_0_0_#ffffff]' : 'text-green-900 hover:bg-green-50'}`}>Holidays</button>
+                                <button onClick={() => { setActiveTab("logs"); fetchLogs(); }} className={`px-6 py-4 font-black uppercase tracking-widest text-sm transition-all ${activeTab === 'logs' ? 'bg-green-900 text-white shadow-[inset_0_-4px_0_0_#ffffff]' : 'text-green-900 hover:bg-green-50'}`}>Email Logs</button>
                             </div>
                             
                             {/* TAB CONTENT: HISTORY & EDITS */}

@@ -15,7 +15,8 @@ from attendance.views import (
     delete_report, get_report_image, upload_dtr, verify_session, 
     get_admin_dashboard, admin_intern_actions, admin_export_csv, 
     upload_profile_picture, get_profile_picture_view, get_intern_dashboard_data,
-    ping_view, send_reminder_emails, cron_send_reminders
+    ping_view, send_reminder_emails, cron_send_reminders,
+    get_holidays, add_holiday, delete_holiday, get_email_logs
 )
 
 def home(request):
@@ -59,6 +60,12 @@ urlpatterns =[
     path('api/ping/', ping_view),
     path('api/send-reminders/', send_reminder_emails),
     path('api/cron-reminders/', cron_send_reminders),
+    
+    # Holiday & Logs management
+    path('api/holidays/', get_holidays),
+    path('api/holidays/add/', add_holiday),
+    path('api/holidays/delete/<int:holiday_id>/', delete_holiday),
+    path('api/admin/email-logs/', get_email_logs),
 
 ]
 

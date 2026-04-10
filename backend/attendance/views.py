@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, get_effective_hours
+from .models import Intern, Attendance, AccomplishmentReport, AccomplishmentImage, get_effective_hours, Holiday, EmailLog
 from django.contrib.auth.hashers import make_password, check_password
 import io
 from datetime import datetime, time, timedelta
@@ -18,8 +18,8 @@ from django.db.models import Q
 from collections import defaultdict
 from datetime import date as date_type
 
-# 2026 Philippine Holidays (Regular + Special Non-Working)
-PH_HOLIDAYS_2026 = {
+# 2026 Philippine Holidays (Hardcoded as fallback)
+PH_HOLIDAYS_HARDCODED = {
     date_type(2026, 1, 1),   # New Year's Day
     date_type(2026, 2, 17),  # Chinese New Year
     date_type(2026, 4, 2),   # Maundy Thursday
@@ -39,6 +39,11 @@ PH_HOLIDAYS_2026 = {
     date_type(2026, 12, 30), # Rizal Day
     date_type(2026, 12, 31), # Last Day of the Year
 }
+
+def get_all_holidays():
+    """Returns a set of all holiday dates from both database and hardcoded list."""
+    db_holidays = set(Holiday.objects.values_list('date', flat=True))
+    return PH_HOLIDAYS_HARDCODED.union(db_holidays)
 
 
 def format_hrs_mins(decimal_hours):
@@ -385,7 +390,7 @@ def get_status(request):
     has_sunday = Attendance.objects.filter(student_id=student_id, date__week_day=1).exists()
 
     # ===== ESTIMATED END DATE =====
-    total_required = 486
+    total_required = user.required_hours
     remaining_hours = max(total_required - total_hours, 0)
     
     if remaining_hours == 0:
@@ -403,9 +408,10 @@ def get_status(request):
         
         remaining_days = math.ceil(remaining_hours / avg_hours_per_day)
         
+        all_holidays = get_all_holidays()
         # Check if today is a working day (not a holiday)
         is_today_workday = (
-            today not in PH_HOLIDAYS_2026 and (
+            today not in all_holidays and (
                 today.weekday() < 5 or
                 (today.weekday() == 5 and has_saturday) or
                 (today.weekday() == 6 and has_sunday)
@@ -418,7 +424,7 @@ def get_status(request):
         
         while added_days < remaining_days:
             est += timedelta(days=1)
-            if est in PH_HOLIDAYS_2026:
+            if est in all_holidays:
                 continue  # Skip holidays
             if est.weekday() < 5 or (est.weekday() == 5 and has_saturday) or (est.weekday() == 6 and has_sunday):
                 added_days += 1
@@ -1513,6 +1519,7 @@ def get_admin_dashboard(request):
             "email": intern.email or "",
             "course": getattr(intern, 'course', 'N/A'),
             "total_hours": total_hours,
+            "required_hours": intern.required_hours,
             "formatted_total_hours": format_hrs_mins(total_hours),
             "status_today": status_today,
             "is_active": intern.is_active,
@@ -1582,6 +1589,17 @@ def admin_intern_actions(request):
             intern.email = new_email
             intern.save()
             return Response({"message": f"Email updated to {new_email} for {intern.name}", "email": new_email})
+            
+        elif action == "update_required_hours":
+            val = request.data.get("required_hours")
+            try:
+                val = float(val)
+                if val <= 0: raise ValueError()
+                intern.required_hours = val
+                intern.save()
+                return Response({"message": f"Required hours updated to {val} for {intern.name}", "required_hours": val})
+            except:
+                return Response({"error": "Invalid hours value. Please enter a positive number."}, status=400)
 
         else:
             return Response({"error": "Invalid action"}, status=400)
@@ -1716,8 +1734,19 @@ def cron_send_reminders(request):
     try:
         connection = get_connection()
         count = connection.send_messages(email_messages)
+        # Log successful sends
+        for msg in email_messages:
+            try:
+                target = Intern.objects.get(email=msg.to[0])
+                EmailLog.objects.create(intern=target, type=reminder_type, status='success')
+            except: pass
+            
         return Response({"message": f"Sent {count} {reminder_type} reminder(s)", "sent": count, "sent_to": sent_to})
     except Exception as e:
+        # Log failed attempt if we had a target
+        for intern in active_interns:
+            if intern.email in [m.to[0] for m in email_messages]:
+                EmailLog.objects.create(intern=intern, type=reminder_type, status='failed', error_message=str(e))
         return Response({"error": str(e)}, status=500)
 
 @api_view(['POST'])
@@ -1801,6 +1830,15 @@ def send_reminder_emails(request):
     try:
         connection = get_connection()
         count = connection.send_messages(email_messages)
+        # Log successful sends
+        for msg in email_messages:
+            try:
+                target = Intern.objects.get(email=msg.to[0])
+                # If target_student_id is present, it's a manual reminder
+                log_type = "manual" if target_student_id else reminder_type
+                EmailLog.objects.create(intern=target, type=log_type, status='success')
+            except: pass
+
         return Response({
             "message": f"Successfully sent {count} {reminder_type} reminder(s)!",
             "sent": count,
@@ -1808,6 +1846,58 @@ def send_reminder_emails(request):
             "skipped": skipped
         })
     except Exception as e:
+        # Log failures
+        for intern in active_interns:
+             if intern.email in [m.to[0] for m in email_messages]:
+                log_type = "manual" if target_student_id else reminder_type
+                EmailLog.objects.create(intern=intern, type=log_type, status='failed', error_message=str(e))
         return Response({"error": f"Failed to send emails: {str(e)}"}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_holidays(request):
+    """Fetch holidays from DB + hardcoded."""
+    if not request.user.is_staff: return Response(status=403)
+    db_holidays = Holiday.objects.all().values('id', 'name', 'date')
+    hardcoded = [{"id": f"hc_{i}", "name": h.strftime("%B %d") + " (Fixed)", "date": h} for i, h in enumerate(sorted(PH_HOLIDAYS_HARDCODED))]
+    return Response({"holidays": list(db_holidays), "fixed_holidays": hardcoded})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_holiday(request):
+    if not request.user.is_staff: return Response(status=403)
+    name = request.data.get("name")
+    date_str = request.data.get("date")
+    if not name or not date_str: return Response({"error": "Missing fields"}, status=400)
+    try:
+        Holiday.objects.create(name=name, date=date_str)
+        return Response({"message": "Holiday added"})
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_holiday(request, holiday_id):
+    if not request.user.is_staff: return Response(status=403)
+    try:
+        Holiday.objects.get(id=holiday_id).delete()
+        return Response({"message": "Holiday removed"})
+    except:
+        return Response({"error": "Not found"}, status=404)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_email_logs(request):
+    if not request.user.is_staff: return Response(status=403)
+    logs = EmailLog.objects.select_related('intern').all()[:100] # Latest 100
+    results = [{
+        "id": l.id,
+        "intern_name": l.intern.name,
+        "type": l.get_type_display(),
+        "status": l.status,
+        "timestamp": l.timestamp.strftime("%b %d, %H:%M"),
+        "error": l.error_message
+    } for l in logs]
+    return Response({"logs": results})
 
 
