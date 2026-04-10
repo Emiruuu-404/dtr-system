@@ -94,7 +94,7 @@ export default function Dashboard() {
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 return { ...h, daysUntil: diffDays, dateObj: hDate };
             })
-            .filter(h => h.dateObj.getMonth() === currentMonth && h.dateObj.getFullYear() === currentYear)
+            .filter(h => h.dateObj.getMonth() === currentMonth && h.dateObj.getFullYear() === currentYear && h.daysUntil >= 0)
             .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
     }, []);
 
