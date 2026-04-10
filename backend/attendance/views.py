@@ -1638,4 +1638,99 @@ def admin_export_csv(request):
 def ping_view(request):
     return Response({"status": "ok", "timestamp": timezone.now()})
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_reminder_emails(request):
+    """Admin-triggered email reminders to all active interns."""
+    from django.core.mail import send_mass_mail
+    from django.conf import settings
+
+    if not request.user.is_staff:
+        return Response({"error": "Admin access required"}, status=403)
+
+    if not settings.EMAIL_HOST_USER:
+        return Response({"error": "Email is not configured on the server. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in environment variables."}, status=500)
+
+    reminder_type = request.data.get("type", "auto")
+    now = timezone.localtime()
+    today = now.date()
+
+    if reminder_type == "auto":
+        reminder_type = "morning" if now.hour < 12 else "afternoon"
+
+    active_interns = Intern.objects.filter(is_staff=False, is_active=True)
+    messages = []
+    sent_to = []
+    skipped = []
+
+    for intern in active_interns:
+        if not intern.email:
+            skipped.append(f"{intern.name} (no email)")
+            continue
+
+        record = Attendance.objects.filter(
+            student_id=intern.student_id,
+            date=today
+        ).first()
+
+        if reminder_type == "morning":
+            if record and record.am_time_in:
+                skipped.append(f"{intern.name} (already timed in)")
+                continue
+
+            subject = '⏰ OJT Time-In Reminder'
+            body = (
+                f"Good morning, {intern.name}!\n\n"
+                f"This is a friendly reminder to TIME IN for your OJT today.\n\n"
+                f"📅 Date: {today.strftime('%B %d, %Y')}\n"
+                f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
+                f"Don't forget to record your morning shift!\n\n"
+                f"— OJT DTR System"
+            )
+        else:
+            if record and record.pm_time_out:
+                skipped.append(f"{intern.name} (already timed out)")
+                continue
+            if not record or not record.am_time_in:
+                skipped.append(f"{intern.name} (absent today)")
+                continue
+
+            subject = '⏰ OJT Time-Out Reminder'
+            body = (
+                f"Good afternoon, {intern.name}!\n\n"
+                f"This is a friendly reminder to TIME OUT before you leave.\n\n"
+                f"📅 Date: {today.strftime('%B %d, %Y')}\n"
+                f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
+                f"Make sure your PM shift is properly recorded!\n\n"
+                f"— OJT DTR System"
+            )
+
+        messages.append((
+            subject,
+            body,
+            settings.DEFAULT_FROM_EMAIL,
+            [intern.email]
+        ))
+        sent_to.append(intern.name)
+
+    if not messages:
+        return Response({
+            "message": f"No {reminder_type} reminders needed. All interns have already logged.",
+            "sent": 0,
+            "sent_to": [],
+            "skipped": skipped
+        })
+
+    try:
+        count = send_mass_mail(messages, fail_silently=False)
+        return Response({
+            "message": f"Successfully sent {count} {reminder_type} reminder(s)!",
+            "sent": count,
+            "sent_to": sent_to,
+            "skipped": skipped
+        })
+    except Exception as e:
+        return Response({"error": f"Failed to send emails: {str(e)}"}, status=500)
+
 

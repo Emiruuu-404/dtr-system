@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, UserX, UserCheck, Clock, Search, AlertCircle, CheckCircle } from "lucide-react";
+import { Users, UserX, UserCheck, Clock, Search, AlertCircle, CheckCircle, Mail, Loader2 } from "lucide-react";
 import { API_URL } from "../config";
 import { useNavigate } from "react-router";
 
@@ -12,6 +12,7 @@ export default function AdminDashboard() {
     const [internReports, setInternReports] = useState<any>(null);
     const [activeTab, setActiveTab] = useState("history");
     const [actionLoading, setActionLoading] = useState(false);
+    const [sendingReminders, setSendingReminders] = useState(false);
     
 
     
@@ -204,6 +205,34 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleSendReminders = async () => {
+        setSendingReminders(true);
+        try {
+            const adminToken = localStorage.getItem("admin_token");
+            const res = await fetch(`${API_URL}/api/send-reminders/`, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${adminToken}`
+                },
+                body: JSON.stringify({ type: "auto" })
+            });
+            const d = await res.json();
+            if (res.ok) {
+                let msg = d.message;
+                if (d.sent_to && d.sent_to.length > 0) {
+                    msg += "\n\nSent to: " + d.sent_to.join(", ");
+                }
+                setFeedbackModal({ show: true, type: 'success', message: msg });
+            } else {
+                setFeedbackModal({ show: true, type: 'error', message: d.error || "Failed to send reminders" });
+            }
+        } catch (e) {
+            setFeedbackModal({ show: true, type: 'error', message: "Network error sending reminders" });
+        }
+        setSendingReminders(false);
+    };
+
     const loadInternData = async (intern: any) => {
         setSelectedIntern(intern);
         setInternHistory(null);
@@ -394,6 +423,14 @@ export default function AdminDashboard() {
                             className="bg-green-100 text-green-900 px-4 py-2 border-2 border-green-900 font-bold uppercase tracking-wide hover:bg-green-200 transition-colors text-xs"
                         >
                             + Add Intern
+                        </button>
+                        <button 
+                            onClick={handleSendReminders}
+                            disabled={sendingReminders}
+                            className="bg-amber-100 text-amber-900 px-4 py-2 border-2 border-amber-700 font-bold uppercase tracking-wide hover:bg-amber-200 transition-colors text-xs flex items-center gap-2 disabled:opacity-50"
+                        >
+                            {sendingReminders ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                            {sendingReminders ? 'Sending...' : 'Send Reminders'}
                         </button>
                         <button 
                             onClick={handleExportCSV}
