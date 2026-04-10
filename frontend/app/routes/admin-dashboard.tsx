@@ -551,6 +551,39 @@ export default function AdminDashboard() {
                                         <button onClick={() => handleDownloadDTR('2nd_half')} className="flex-1 bg-green-100 border-2 border-green-900 text-green-900 font-bold px-3 py-2 text-xs uppercase tracking-wider hover:bg-green-200">2nd Half DTR</button>
                                     </div>
                                 </div>
+                                <div className="min-w-[160px]">
+                                    <p className="text-xs font-black uppercase text-gray-500 mb-2 tracking-widest">Email Reminder</p>
+                                    <button 
+                                        onClick={async () => {
+                                            setSendingReminders(true);
+                                            try {
+                                                const adminToken = localStorage.getItem("admin_token");
+                                                const res = await fetch(`${API_URL}/api/send-reminders/`, {
+                                                    method: "POST",
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                        'Authorization': `Bearer ${adminToken}`
+                                                    },
+                                                    body: JSON.stringify({ type: "auto", student_id: selectedIntern.student_id })
+                                                });
+                                                const d = await res.json();
+                                                if (res.ok) {
+                                                    setFeedbackModal({ show: true, type: d.sent > 0 ? 'success' : 'error', message: d.message });
+                                                } else {
+                                                    setFeedbackModal({ show: true, type: 'error', message: d.error || "Failed" });
+                                                }
+                                            } catch (e) {
+                                                setFeedbackModal({ show: true, type: 'error', message: "Network error" });
+                                            }
+                                            setSendingReminders(false);
+                                        }}
+                                        disabled={sendingReminders}
+                                        className="w-full bg-amber-100 text-amber-900 border-2 border-amber-700 font-bold px-3 py-2 text-xs uppercase tracking-wider hover:bg-amber-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        {sendingReminders ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+                                        {sendingReminders ? 'Sending...' : 'Send Reminder'}
+                                    </button>
+                                </div>
                                 <div className="flex-1 min-w-[300px]">
                                     <p className="text-xs font-black uppercase text-gray-500 mb-2 tracking-widest">Account Management</p>
                                     <div className="flex gap-2">

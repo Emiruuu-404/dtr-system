@@ -1733,13 +1733,19 @@ def send_reminder_emails(request):
         return Response({"error": "Email is not configured on the server. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in environment variables."}, status=500)
 
     reminder_type = request.data.get("type", "auto")
+    target_student_id = request.data.get("student_id", None)
     now = timezone.localtime()
     today = now.date()
 
     if reminder_type == "auto":
         reminder_type = "morning" if now.hour < 12 else "afternoon"
 
-    active_interns = Intern.objects.filter(is_staff=False, is_active=True)
+    if target_student_id:
+        # Send to specific intern
+        active_interns = Intern.objects.filter(student_id=target_student_id)
+    else:
+        # Send to all active interns
+        active_interns = Intern.objects.filter(is_staff=False, is_active=True)
     messages = []
     sent_to = []
     skipped = []
