@@ -1639,6 +1639,86 @@ def ping_view(request):
     return Response({"status": "ok", "timestamp": timezone.now()})
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def cron_send_reminders(request):
+    """
+    GET endpoint for free external cron services (e.g. cron-job.org).
+    Secured with a secret key instead of JWT auth.
+    Usage: GET /api/cron-reminders/?key=YOUR_SECRET&type=morning
+    """
+    import os
+    from django.core.mail import send_mass_mail
+    from django.conf import settings as django_settings
+
+    cron_secret = os.environ.get('CRON_SECRET', '')
+    provided_key = request.GET.get('key', '')
+
+    if not cron_secret or provided_key != cron_secret:
+        return Response({"error": "Unauthorized"}, status=403)
+
+    if not django_settings.EMAIL_HOST_USER:
+        return Response({"error": "Email not configured"}, status=500)
+
+    reminder_type = request.GET.get('type', 'auto')
+    now = timezone.localtime()
+    today = now.date()
+
+    if reminder_type == 'auto':
+        reminder_type = 'morning' if now.hour < 12 else 'afternoon'
+
+    active_interns = Intern.objects.filter(is_staff=False, is_active=True)
+    messages = []
+    sent_to = []
+
+    for intern in active_interns:
+        if not intern.email:
+            continue
+
+        record = Attendance.objects.filter(
+            student_id=intern.student_id,
+            date=today
+        ).first()
+
+        if reminder_type == 'morning':
+            if record and record.am_time_in:
+                continue
+            subject = '⏰ OJT Time-In Reminder'
+            body = (
+                f"Good morning, {intern.name}!\n\n"
+                f"This is a friendly reminder to TIME IN for your OJT today.\n\n"
+                f"📅 Date: {today.strftime('%B %d, %Y')}\n"
+                f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
+                f"Don't forget to record your morning shift!\n\n"
+                f"— OJT DTR System"
+            )
+        else:
+            if record and record.pm_time_out:
+                continue
+            if not record or not record.am_time_in:
+                continue
+            subject = '⏰ OJT Time-Out Reminder'
+            body = (
+                f"Good afternoon, {intern.name}!\n\n"
+                f"This is a friendly reminder to TIME OUT before you leave.\n\n"
+                f"📅 Date: {today.strftime('%B %d, %Y')}\n"
+                f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
+                f"Make sure your PM shift is properly recorded!\n\n"
+                f"— OJT DTR System"
+            )
+
+        messages.append((subject, body, django_settings.DEFAULT_FROM_EMAIL, [intern.email]))
+        sent_to.append(intern.name)
+
+    if not messages:
+        return Response({"message": f"No {reminder_type} reminders needed.", "sent": 0})
+
+    try:
+        count = send_mass_mail(messages, fail_silently=False)
+        return Response({"message": f"Sent {count} {reminder_type} reminder(s)", "sent": count, "sent_to": sent_to})
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def send_reminder_emails(request):
