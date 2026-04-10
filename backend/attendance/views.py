@@ -1657,8 +1657,9 @@ def cron_send_reminders(request):
     Usage: GET /api/cron-reminders/?key=YOUR_SECRET&type=morning
     """
     import os
-    from django.core.mail import send_mass_mail
+    from django.core.mail import EmailMultiAlternatives, get_connection
     from django.conf import settings as django_settings
+    from attendance.email_templates import get_reminder_html
 
     cron_secret = os.environ.get('CRON_SECRET', '')
     provided_key = request.GET.get('key', '')
@@ -1672,12 +1673,13 @@ def cron_send_reminders(request):
     reminder_type = request.GET.get('type', 'auto')
     now = timezone.localtime()
     today = now.date()
+    date_str = today.strftime('%B %d, %Y')
 
     if reminder_type == 'auto':
         reminder_type = 'morning' if now.hour < 12 else 'afternoon'
 
     active_interns = Intern.objects.filter(is_staff=False, is_active=True)
-    messages = []
+    email_messages = []
     sent_to = []
 
     for intern in active_interns:
@@ -1693,37 +1695,27 @@ def cron_send_reminders(request):
             if record and record.am_time_in:
                 continue
             subject = '⏰ OJT Time-In Reminder'
-            body = (
-                f"Good morning, {intern.name}!\n\n"
-                f"This is a friendly reminder to TIME IN for your OJT today.\n\n"
-                f"📅 Date: {today.strftime('%B %d, %Y')}\n"
-                f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
-                f"Don't forget to record your morning shift!\n\n"
-                f"— OJT DTR System"
-            )
+            plain_body = f"Good morning, {intern.name}! Please TIME IN for your OJT today ({date_str}). Log at: https://ojtdtr.systemproj.com"
         else:
             if record and record.pm_time_out:
                 continue
             if not record or not record.am_time_in:
                 continue
             subject = '⏰ OJT Time-Out Reminder'
-            body = (
-                f"Good afternoon, {intern.name}!\n\n"
-                f"This is a friendly reminder to TIME OUT before you leave.\n\n"
-                f"📅 Date: {today.strftime('%B %d, %Y')}\n"
-                f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
-                f"Make sure your PM shift is properly recorded!\n\n"
-                f"— OJT DTR System"
-            )
+            plain_body = f"Good afternoon, {intern.name}! Please TIME OUT before you leave ({date_str}). Log at: https://ojtdtr.systemproj.com"
 
-        messages.append((subject, body, django_settings.DEFAULT_FROM_EMAIL, [intern.email]))
+        html_body = get_reminder_html(intern.name, reminder_type, date_str)
+        msg = EmailMultiAlternatives(subject=subject, body=plain_body, from_email=django_settings.DEFAULT_FROM_EMAIL, to=[intern.email])
+        msg.attach_alternative(html_body, "text/html")
+        email_messages.append(msg)
         sent_to.append(intern.name)
 
-    if not messages:
+    if not email_messages:
         return Response({"message": f"No {reminder_type} reminders needed.", "sent": 0})
 
     try:
-        count = send_mass_mail(messages, fail_silently=False)
+        connection = get_connection()
+        count = connection.send_messages(email_messages)
         return Response({"message": f"Sent {count} {reminder_type} reminder(s)", "sent": count, "sent_to": sent_to})
     except Exception as e:
         return Response({"error": str(e)}, status=500)
@@ -1732,8 +1724,9 @@ def cron_send_reminders(request):
 @permission_classes([IsAuthenticated])
 def send_reminder_emails(request):
     """Admin-triggered email reminders to all active interns."""
-    from django.core.mail import send_mass_mail
+    from django.core.mail import EmailMultiAlternatives, get_connection
     from django.conf import settings
+    from attendance.email_templates import get_reminder_html
 
     if not request.user.is_staff:
         return Response({"error": "Admin access required"}, status=403)
@@ -1745,17 +1738,17 @@ def send_reminder_emails(request):
     target_student_id = request.data.get("student_id", None)
     now = timezone.localtime()
     today = now.date()
+    date_str = today.strftime('%B %d, %Y')
 
     if reminder_type == "auto":
         reminder_type = "morning" if now.hour < 12 else "afternoon"
 
     if target_student_id:
-        # Send to specific intern
         active_interns = Intern.objects.filter(student_id=target_student_id)
     else:
-        # Send to all active interns
         active_interns = Intern.objects.filter(is_staff=False, is_active=True)
-    messages = []
+
+    email_messages = []
     sent_to = []
     skipped = []
 
@@ -1773,16 +1766,8 @@ def send_reminder_emails(request):
             if not target_student_id and record and record.am_time_in:
                 skipped.append(f"{intern.name} (already timed in)")
                 continue
-
             subject = '⏰ OJT Time-In Reminder'
-            body = (
-                f"Good morning, {intern.name}!\n\n"
-                f"This is a friendly reminder to TIME IN for your OJT today.\n\n"
-                f"📅 Date: {today.strftime('%B %d, %Y')}\n"
-                f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
-                f"Don't forget to record your morning shift!\n\n"
-                f"— OJT DTR System"
-            )
+            plain_body = f"Good morning, {intern.name}! Please TIME IN for your OJT today ({date_str}). Log at: https://ojtdtr.systemproj.com"
         else:
             if not target_student_id and record and record.pm_time_out:
                 skipped.append(f"{intern.name} (already timed out)")
@@ -1790,26 +1775,22 @@ def send_reminder_emails(request):
             if not target_student_id and (not record or not record.am_time_in):
                 skipped.append(f"{intern.name} (absent today)")
                 continue
-
             subject = '⏰ OJT Time-Out Reminder'
-            body = (
-                f"Good afternoon, {intern.name}!\n\n"
-                f"This is a friendly reminder to TIME OUT before you leave.\n\n"
-                f"📅 Date: {today.strftime('%B %d, %Y')}\n"
-                f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
-                f"Make sure your PM shift is properly recorded!\n\n"
-                f"— OJT DTR System"
-            )
+            plain_body = f"Good afternoon, {intern.name}! Please TIME OUT before you leave ({date_str}). Log at: https://ojtdtr.systemproj.com"
 
-        messages.append((
-            subject,
-            body,
-            settings.DEFAULT_FROM_EMAIL,
-            [intern.email]
-        ))
+        html_body = get_reminder_html(intern.name, reminder_type, date_str)
+
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[intern.email]
+        )
+        msg.attach_alternative(html_body, "text/html")
+        email_messages.append(msg)
         sent_to.append(intern.name)
 
-    if not messages:
+    if not email_messages:
         return Response({
             "message": f"No {reminder_type} reminders needed. All interns have already logged.",
             "sent": 0,
@@ -1818,7 +1799,8 @@ def send_reminder_emails(request):
         })
 
     try:
-        count = send_mass_mail(messages, fail_silently=False)
+        connection = get_connection()
+        count = connection.send_messages(email_messages)
         return Response({
             "message": f"Successfully sent {count} {reminder_type} reminder(s)!",
             "sent": count,

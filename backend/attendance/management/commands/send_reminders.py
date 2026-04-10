@@ -7,10 +7,11 @@ Usage:
     python manage.py send_reminders                    # Auto-detect based on time
 """
 from django.core.management.base import BaseCommand
-from django.core.mail import send_mass_mail
+from django.core.mail import EmailMultiAlternatives, get_connection
 from django.utils import timezone
 from django.conf import settings
 from attendance.models import Intern, Attendance
+from attendance.email_templates import get_reminder_html
 
 
 class Command(BaseCommand):
@@ -33,14 +34,14 @@ class Command(BaseCommand):
 
         now = timezone.localtime()
         today = now.date()
+        date_str = today.strftime('%B %d, %Y')
         reminder_type = options.get('type')
 
-        # Auto-detect based on current time
         if not reminder_type:
             reminder_type = 'morning' if now.hour < 12 else 'afternoon'
 
         active_interns = Intern.objects.filter(is_staff=False, is_active=True)
-        messages = []
+        email_messages = []
         sent_to = []
 
         for intern in active_interns:
@@ -53,53 +54,38 @@ class Command(BaseCommand):
             ).first()
 
             if reminder_type == 'morning':
-                # Skip if already timed in
                 if record and record.am_time_in:
                     continue
-
                 subject = '⏰ OJT Time-In Reminder'
-                body = (
-                    f"Good morning, {intern.name}!\n\n"
-                    f"This is a friendly reminder to TIME IN for your OJT today.\n\n"
-                    f"📅 Date: {today.strftime('%B %d, %Y')}\n"
-                    f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
-                    f"Don't forget to record your morning shift!\n\n"
-                    f"— OJT DTR System"
-                )
+                plain_body = f"Good morning, {intern.name}! Please TIME IN for your OJT today ({date_str}). Log at: https://ojtdtr.systemproj.com"
             else:
-                # Skip if already timed out
                 if record and record.pm_time_out:
                     continue
-                # Only remind those who timed in
                 if not record or not record.am_time_in:
                     continue
-
                 subject = '⏰ OJT Time-Out Reminder'
-                body = (
-                    f"Good afternoon, {intern.name}!\n\n"
-                    f"This is a friendly reminder to TIME OUT before you leave.\n\n"
-                    f"📅 Date: {today.strftime('%B %d, %Y')}\n"
-                    f"🕐 Please log your attendance at: https://ojtdtr.systemproj.com\n\n"
-                    f"Make sure your PM shift is properly recorded!\n\n"
-                    f"— OJT DTR System"
-                )
+                plain_body = f"Good afternoon, {intern.name}! Please TIME OUT before you leave ({date_str}). Log at: https://ojtdtr.systemproj.com"
 
-            messages.append((
-                subject,
-                body,
-                settings.DEFAULT_FROM_EMAIL,
-                [intern.email]
-            ))
+            html_body = get_reminder_html(intern.name, reminder_type, date_str)
+            msg = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[intern.email]
+            )
+            msg.attach_alternative(html_body, "text/html")
+            email_messages.append(msg)
             sent_to.append(f"{intern.name} ({intern.email})")
 
-        if not messages:
+        if not email_messages:
             self.stdout.write(self.style.WARNING(
                 f'No {reminder_type} reminders to send. All interns have already logged.'
             ))
             return
 
         try:
-            count = send_mass_mail(messages, fail_silently=False)
+            connection = get_connection()
+            count = connection.send_messages(email_messages)
             self.stdout.write(self.style.SUCCESS(
                 f'Successfully sent {count} {reminder_type} reminder(s) to:\n' +
                 '\n'.join(f'  → {name}' for name in sent_to)

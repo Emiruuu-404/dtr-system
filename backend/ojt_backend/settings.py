@@ -241,4 +241,4 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')  # Gmail address
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  # Gmail app password
-DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER', 'noreply@ojtdtr.systemproj.com')
+DEFAULT_FROM_EMAIL = f"OJT DTR System <{os.environ.get('EMAIL_HOST_USER', 'noreply@ojtdtr.systemproj.com')}>"
