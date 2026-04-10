@@ -11,21 +11,24 @@ def get_reminder_html(intern_name, reminder_type, date_str):
     mid_green = "#166534"   # green-800
     bg_gray = "#f3f4f6"
     
-    # Base64 SVG Line-art Icon (Clock)
-    clock_svg = f"""<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='{dark_green}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>"""
-    import base64
-    clock_icon = f"data:image/svg+xml;base64,{base64.b64encode(clock_svg.encode()).decode()}"
+    # Design Tokens
+    dark_green = "#064e3b"
+    accent_red = "#991b1b"
+    accent_green = "#15803d"
+    bg_color = "#f3f4f6"
 
     if reminder_type == "morning":
-        icon_text = "AM SHIFT"
-        action = "TIME IN"
-        accent_color = "#15803d"
-        message = "Start your day right! Record your arrival in the system."
+        indicator = f"background-color:{accent_green};"
+        status_label = "MORNING SHIFT"
+        action_text = "TIME IN"
+        accent = accent_green
+        footer_note = "Start your day right! Record your arrival in the system."
     else:
-        icon_text = "PM SHIFT"
-        action = "TIME OUT"
-        accent_color = "#b91c1c"
-        message = "Ensure your PM shift is properly recorded before you leave."
+        indicator = f"background-color:{accent_red};"
+        status_label = "AFTERNOON SHIFT"
+        action_text = "TIME OUT"
+        accent = accent_red
+        footer_note = "Ensure your PM shift is properly recorded before you leave."
 
     html = f"""
     <!DOCTYPE html>
@@ -34,30 +37,29 @@ def get_reminder_html(intern_name, reminder_type, date_str):
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
-    <body style="margin:0;padding:0;background-color:{bg_gray};font-family:'Inter', 'Segoe UI', Arial, sans-serif;-webkit-font-smoothing:antialiased;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:{bg_gray};padding:40px 20px;">
+    <body style="margin:0;padding:0;background-color:{bg_color};font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:{bg_color};padding:50px 20px;">
             <tr>
                 <td align="center">
                     
-                    <!-- Main Card with Neo-Brutalist Shadow -->
-                    <table role="presentation" width="550" cellspacing="0" cellpadding="0" style="background-color:#ffffff; border:4px solid {dark_green}; box-shadow: 10px 10px 0px 0px {dark_green}; max-width:550px; width:100%; text-align:left;">
+                    <!-- Main Card -->
+                    <table role="presentation" width="550" cellspacing="0" cellpadding="0" style="background-color:#ffffff; border:4px solid {dark_green}; box-shadow: 12px 12px 0px 0px {dark_green}; max-width:550px; width:100%;">
                         
-                        <!-- Header Bar -->
+                        <!-- Top Accent Bar -->
                         <tr>
-                            <td style="background-color:{dark_green}; padding:18px 30px;">
+                            <td height="8" style="{indicator} font-size:1px; line-height:1px;">&nbsp;</td>
+                        </tr>
+
+                        <!-- Brand Header -->
+                        <tr>
+                            <td style="padding:25px 35px; border-bottom:2px solid {dark_green};">
                                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                                     <tr>
-                                        <td style="font-size:16px; color:#ffffff; font-weight:900; letter-spacing:3px; text-transform:uppercase; vertical-align:middle;">
+                                        <td style="font-size:14px; font-weight:900; color:{dark_green}; letter-spacing:4px; text-transform:uppercase;">
                                             OJT DTR SYSTEM
                                         </td>
-                                        <td align="right" style="vertical-align:middle;">
-                                            <table role="presentation" cellspacing="0" cellpadding="0">
-                                                <tr>
-                                                    <td style="background-color:#ffffff; border:2px solid {dark_green}; padding:4px 10px; font-size:10px; font-weight:900; letter-spacing:1px; color:{dark_green}; text-transform:uppercase;">
-                                                        {icon_text}
-                                                    </td>
-                                                </tr>
-                                            </table>
+                                        <td align="right" style="font-size:10px; font-weight:900; color:{dark_green}; letter-spacing:1px; text-transform:uppercase; background-color:{bg_color}; padding:5px 12px; border:2px solid {dark_green};">
+                                            OFFICIAL
                                         </td>
                                     </tr>
                                 </table>
@@ -66,62 +68,51 @@ def get_reminder_html(intern_name, reminder_type, date_str):
 
                         <!-- Content Area -->
                         <tr>
-                            <td style="padding:40px 35px;">
-                                <table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:15px;">
-                                    <tr>
-                                        <td style="padding-right:10px; vertical-align:middle;">
-                                            <img src="{clock_icon}" width="24" height="24" alt="Icon" style="display:block;">
-                                        </td>
-                                        <td style="vertical-align:middle;">
-                                            <h2 style="margin:0; font-size:24px; font-weight:900; color:{dark_green}; text-transform:uppercase; letter-spacing:-0.5px;">
-                                                {reminder_type} Reminder
-                                            </h2>
-                                        </td>
-                                    </tr>
-                                </table>
-
-                                <p style="margin:0 0 25px 0; font-size:16px; font-weight:600; color:#4b5563;">
-                                    Hello, <span style="color:{dark_green}; text-decoration:underline;">{intern_name}</span>!
-                                </p>
+                            <td style="padding:45px 40px;">
+                                <h1 style="margin:0 0 15px 0; font-size:32px; font-weight:900; color:{dark_green}; letter-spacing:-1px; text-transform:uppercase; line-height:1;">
+                                    {reminder_type}<br/>REMINDER
+                                </h1>
                                 
-                                <!-- Message Box -->
-                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:30px;">
-                                    <tr>
-                                        <td style="background-color:#f9fafb; border:2px solid {dark_green}; padding:20px; font-size:15px; color:#374151; line-height:1.6; font-weight:500;">
-                                            This is a formal reminder to <strong style="color:{accent_color};">{action}</strong> for your OJT attendance today.
-                                        </td>
-                                    </tr>
-                                </table>
+                                <p style="margin:0 0 35px 0; font-size:16px; font-weight:700; color:#4b5563;">
+                                    Hello, <span style="color:{dark_green}; border-bottom:2px solid {dark_green};">{intern_name}</span>.
+                                </p>
 
-                                <!-- Details Table -->
+                                <!-- Professional Notice Box -->
                                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:35px;">
                                     <tr>
-                                        <td width="50%" style="padding-right:10px;">
-                                            <div style="border:2px solid {dark_green}; padding:15px; background-color:#ffffff;">
-                                                <p style="margin:0; font-size:10px; font-weight:900; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">📅 OJT Date</p>
+                                        <td style="border-left:8px solid {accent}; background-color:#f9fafb; padding:25px; border-top:2px solid #e5e7eb; border-right:2px solid #e5e7eb; border-bottom:2px solid #e5e7eb;">
+                                            <p style="margin:0; font-size:15px; color:#1f2937; line-height:1.6; font-weight:600;">
+                                                This is an automated operational notice to record your <strong style="color:{accent};">{action_text}</strong>. Failure to log may affect your total rendering hours.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <!-- Data Grid -->
+                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:40px;">
+                                    <tr>
+                                        <td width="50%" style="padding-right:12px;">
+                                            <div style="border:2px solid #e5e7eb; padding:15px;">
+                                                <p style="margin:0; font-size:10px; font-weight:900; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">Date Range</p>
                                                 <p style="margin:6px 0 0 0; font-size:14px; font-weight:800; color:{dark_green};">{date_str}</p>
                                             </div>
                                         </td>
-                                        <td width="50%" style="padding-left:10px;">
-                                            <div style="border:2px solid {dark_green}; padding:15px; background-color:#ffffff;">
-                                                <p style="margin:0; font-size:10px; font-weight:900; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">🔖 Request Status</p>
-                                                <p style="margin:6px 0 0 0; font-size:14px; font-weight:800; color:{accent_color}; uppercase">{action} PENDING</p>
+                                        <td width="50%" style="padding-left:12px;">
+                                            <div style="border:2px solid #e5e7eb; padding:15px;">
+                                                <p style="margin:0; font-size:10px; font-weight:900; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">Action Required</p>
+                                                <p style="margin:6px 0 0 0; font-size:14px; font-weight:800; color:{accent};">{status_label}</p>
                                             </div>
                                         </td>
                                     </tr>
                                 </table>
 
-                                <p style="margin:0 0 30px 0; font-size:13px; color:#6b7280; font-weight:600; font-style:italic;">
-                                    {message}
-                                </p>
-
-                                <!-- Professional CTA Button -->
+                                <!-- CTA -->
                                 <table role="presentation" cellspacing="0" cellpadding="0">
                                     <tr>
-                                        <td style="background-color:{dark_green}; border:2px solid {dark_green}; box-shadow: 4px 4px 0px 0px #14532d;">
+                                        <td style="background-color:{dark_green}; border:2px solid {dark_green}; box-shadow: 6px 6px 0px 0px #14532d;">
                                             <a href="https://ojtdtr.systemproj.com" 
-                                               style="display:inline-block; padding:16px 35px; color:#ffffff; font-size:13px; font-weight:900; text-decoration:none; text-transform:uppercase; letter-spacing:2px;">
-                                                LOG ATTENDANCE NOW
+                                               style="display:inline-block; padding:18px 45px; color:#ffffff; font-size:14px; font-weight:900; text-decoration:none; text-transform:uppercase; letter-spacing:3px;">
+                                                MANAGE ATTENDANCE
                                             </a>
                                         </td>
                                     </tr>
@@ -129,22 +120,28 @@ def get_reminder_html(intern_name, reminder_type, date_str):
                             </td>
                         </tr>
 
-                        <!-- Footer Area -->
+                        <!-- Footer -->
                         <tr>
-                            <td style="padding:25px 35px; background-color:#f9fafb; border-top:2px solid #e5e7eb; text-align:center;">
-                                <p style="margin:0 0 5px 0; font-size:11px; font-weight:800; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">
-                                    OJT Daily Time Record System
-                                </p>
-                                <p style="margin:0; font-size:10px; color:#d1d5db; font-weight:600;">
-                                    This is an automated operational notification.
-                                </p>
+                            <td style="padding:30px 40px; background-color:{bg_color}; text-align:left; border-top:2px solid {dark_green};">
+                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                    <tr>
+                                        <td style="font-size:11px; font-weight:800; color:{dark_green}; text-transform:uppercase; letter-spacing:1px;">
+                                            OJT Administration Division
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding-top:5px; font-size:10px; color:#9ca3af; font-weight:600; line-height:1.4;">
+                                            {footer_note}<br/>
+                                            Secure access guaranteed via systemproj.com
+                                        </td>
+                                    </tr>
+                                </table>
                             </td>
                         </tr>
                     </table>
-                    
-                    <!-- External Link -->
-                    <p style="margin-top:20px; font-size:11px; color:#9ca3af; font-weight:700; text-transform:uppercase; letter-spacing:1px;">
-                        Access System at <a href="https://ojtdtr.systemproj.com" style="color:{dark_green}; text-decoration:none;">ojtdtr.systemproj.com</a>
+
+                    <p style="margin-top:30px; font-size:10px; color:#9ca3af; font-weight:700; text-transform:uppercase; letter-spacing:2px;">
+                        Automated Notification Module v2.0
                     </p>
 
                 </td>
@@ -153,6 +150,8 @@ def get_reminder_html(intern_name, reminder_type, date_str):
     </body>
     </html>
     """
+    return html
+
     return html
 
     return html
