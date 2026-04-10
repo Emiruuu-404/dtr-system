@@ -10,6 +10,28 @@ import {
 import { useEffect, useState, useMemo } from 'react';
 import { API_URL } from '../config';
 
+// 2026 Philippine Holidays for calendar highlighting
+const PH_HOLIDAYS: Record<string, string> = {
+  '2026-01-01': "New Year's Day",
+  '2026-02-17': 'Chinese New Year',
+  '2026-04-02': 'Maundy Thursday',
+  '2026-04-03': 'Good Friday',
+  '2026-04-04': 'Black Saturday',
+  '2026-04-09': 'Araw ng Kagitingan',
+  '2026-05-01': 'Labor Day',
+  '2026-06-12': 'Independence Day',
+  '2026-08-21': 'Ninoy Aquino Day',
+  '2026-08-31': 'National Heroes Day',
+  '2026-11-01': "All Saints' Day",
+  '2026-11-02': "All Souls' Day",
+  '2026-11-30': 'Bonifacio Day',
+  '2026-12-08': 'Immaculate Conception',
+  '2026-12-24': 'Christmas Eve',
+  '2026-12-25': 'Christmas Day',
+  '2026-12-30': 'Rizal Day',
+  '2026-12-31': 'Last Day of the Year',
+};
+
 export default function History() {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -906,6 +928,8 @@ export default function History() {
                       const isToday = toDateKey(date) === toDateKey(today);
                       const isSelected =
                         toDateKey(date) === toDateKey(calendarDate);
+                      const dateKey = toDateKey(date);
+                      const isHoliday = dateKey in PH_HOLIDAYS;
                       return (
                         <button
                           key={i}
@@ -913,19 +937,25 @@ export default function History() {
                           disabled={isFuture}
                           onClick={() => setCalendarDate(date)}
                           className={`
-              text-xs font-black py-2 transition-colors
+              text-xs font-black py-2 transition-colors relative
               ${
                 isFuture
                   ? 'bg-white text-gray-300 cursor-not-allowed'
                   : isSelected
                     ? 'bg-green-900 text-white'
-                    : isToday
-                      ? 'bg-green-200 text-green-900'
-                      : 'bg-white text-gray-900 hover:bg-green-100'
+                    : isHoliday
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                      : isToday
+                        ? 'bg-green-200 text-green-900'
+                        : 'bg-white text-gray-900 hover:bg-green-100'
               }
             `}
+                          title={isHoliday ? PH_HOLIDAYS[dateKey] : undefined}
                         >
                           {i + 1}
+                          {isHoliday && !isFuture && (
+                            <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-red-500" />
+                          )}
                         </button>
                       );
                     })}
@@ -946,6 +976,11 @@ export default function History() {
                       })
                       .toUpperCase()}
                   </span>
+                  {PH_HOLIDAYS[toDateKey(calendarDate)] && (
+                    <span className="text-[8px] font-black text-red-600 uppercase tracking-wider bg-red-100 border border-red-300 px-1.5 py-0.5">
+                      {PH_HOLIDAYS[toDateKey(calendarDate)]}
+                    </span>
+                  )}
                 </div>
               </div>
 
