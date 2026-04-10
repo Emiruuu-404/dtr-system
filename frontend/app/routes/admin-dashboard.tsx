@@ -13,6 +13,7 @@ export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState("history");
     const [actionLoading, setActionLoading] = useState(false);
     const [sendingReminders, setSendingReminders] = useState(false);
+    const [editingEmail, setEditingEmail] = useState<string | null>(null);
     
 
     
@@ -527,6 +528,54 @@ export default function AdminDashboard() {
                                     {!selectedIntern.is_active && <span className="bg-rose-100 text-rose-800 border-2 border-rose-900 px-2 py-0.5 text-xs">OFFLINE</span>}
                                 </h2>
                                 <p className="text-green-700 font-bold uppercase tracking-widest text-sm mt-1">{selectedIntern.student_id} • {selectedIntern.formatted_total_hours || selectedIntern.total_hours} Rendered</p>
+                                <div className="flex items-center gap-2 mt-2">
+                                    {editingEmail !== null ? (
+                                        <>
+                                            <input
+                                                type="email"
+                                                value={editingEmail}
+                                                onChange={(e) => setEditingEmail(e.target.value)}
+                                                className="border-2 border-green-900 px-2 py-1 text-sm font-bold focus:outline-none focus:bg-green-50 w-64"
+                                                autoFocus
+                                            />
+                                            <button
+                                                onClick={async () => {
+                                                    const adminToken = localStorage.getItem("admin_token");
+                                                    const res = await fetch(`${API_URL}/api/admin-actions/`, {
+                                                        method: "POST",
+                                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+                                                        body: JSON.stringify({ student_id: selectedIntern.student_id, action: "update_email", new_email: editingEmail })
+                                                    });
+                                                    const d = await res.json();
+                                                    if (res.ok) {
+                                                        setSelectedIntern({ ...selectedIntern, email: d.email });
+                                                        setData({ ...data, interns: data.interns.map((i: any) => i.student_id === selectedIntern.student_id ? { ...i, email: d.email } : i) });
+                                                        setFeedbackModal({ show: true, type: 'success', message: d.message });
+                                                    } else {
+                                                        setFeedbackModal({ show: true, type: 'error', message: d.error });
+                                                    }
+                                                    setEditingEmail(null);
+                                                }}
+                                                className="bg-green-700 text-white px-2 py-1 text-[10px] font-black uppercase hover:bg-green-800 border border-green-900"
+                                            >Save</button>
+                                            <button
+                                                onClick={() => setEditingEmail(null)}
+                                                className="bg-gray-300 text-gray-700 px-2 py-1 text-[10px] font-black uppercase hover:bg-gray-400 border border-gray-400"
+                                            >Cancel</button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Mail size={14} className="text-gray-400" />
+                                            <span className={`text-sm font-bold ${selectedIntern.email ? 'text-gray-600' : 'text-gray-400 italic'}`}>
+                                                {selectedIntern.email || 'No email set'}
+                                            </span>
+                                            <button
+                                                onClick={() => setEditingEmail(selectedIntern.email || '')}
+                                                className="text-green-700 text-[10px] font-black uppercase hover:underline"
+                                            >Edit</button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex gap-2">
 

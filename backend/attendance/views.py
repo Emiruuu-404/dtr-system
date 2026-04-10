@@ -1510,6 +1510,7 @@ def get_admin_dashboard(request):
         intern_list.append({
             "student_id": intern.student_id,
             "name": intern.name,
+            "email": intern.email or "",
             "course": getattr(intern, 'course', 'N/A'),
             "total_hours": total_hours,
             "formatted_total_hours": format_hrs_mins(total_hours),
@@ -1574,6 +1575,14 @@ def admin_intern_actions(request):
             intern.delete()
             return Response({"message": f"Intern {name} deleted completely."})
             
+        elif action == "update_email":
+            new_email = request.data.get("new_email", "").strip()
+            if not new_email or "@" not in new_email:
+                return Response({"error": "Please enter a valid email address"}, status=400)
+            intern.email = new_email
+            intern.save()
+            return Response({"message": f"Email updated to {new_email} for {intern.name}", "email": new_email})
+
         else:
             return Response({"error": "Invalid action"}, status=400)
             
@@ -1760,8 +1769,8 @@ def send_reminder_emails(request):
             date=today
         ).first()
 
-        if reminder_type == "morning":
-            if record and record.am_time_in:
+        if reminder_type == 'morning':
+            if not target_student_id and record and record.am_time_in:
                 skipped.append(f"{intern.name} (already timed in)")
                 continue
 
@@ -1775,10 +1784,10 @@ def send_reminder_emails(request):
                 f"— OJT DTR System"
             )
         else:
-            if record and record.pm_time_out:
+            if not target_student_id and record and record.pm_time_out:
                 skipped.append(f"{intern.name} (already timed out)")
                 continue
-            if not record or not record.am_time_in:
+            if not target_student_id and (not record or not record.am_time_in):
                 skipped.append(f"{intern.name} (absent today)")
                 continue
 
