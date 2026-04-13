@@ -1760,15 +1760,18 @@ def cron_send_reminders(request):
                 target = Intern.objects.get(email=msg.to[0])
                 EmailLog.objects.create(intern=target, type=reminder_type, status='success')
             except: pass
-            
         success_msg = f"Dispatched {count} {reminder_type} reminder{'s' if count > 1 else ''} successfully."
         return Response({"message": success_msg, "sent": count, "sent_to": sent_to})
     except Exception as e:
-        # Log failed attempt if we had a target
-        for intern in active_interns:
-            if intern.email in [m.to[0] for m in email_messages]:
-                EmailLog.objects.create(intern=intern, type=reminder_type, status='failed', error_message=str(e))
-        return Response({"error": str(e)}, status=500)
+        # Log failure for everyone in the batch if target_student_id is not set
+        error_msg = str(e)
+        if target_student_id and active_interns:
+            EmailLog.objects.create(intern=active_interns[0], type='manual', status='failed', error_message=error_msg)
+        else:
+            # For bulk, log a system-level failure if possible or just return response
+            pass
+        return Response({"error": f"Email Error: {error_msg}. Check if your App Password is correct and SMTP is allowed."}, status=500)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1781,8 +1784,12 @@ def send_reminder_emails(request):
     if not request.user.is_staff:
         return Response({"error": "Admin access required"}, status=403)
 
-    if not settings.EMAIL_HOST_USER:
-        return Response({"error": "Email is not configured on the server. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in environment variables."}, status=500)
+    user = (settings.EMAIL_HOST_USER or "").strip()
+    pw = (settings.EMAIL_HOST_PASSWORD or "").strip().replace(" ", "")
+
+    if not user or not pw:
+        return Response({"error": "Email configuration is incomplete. Please check EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in Render settings."}, status=500)
+
 
     reminder_type = request.data.get("type", "auto")
     target_student_id = request.data.get("student_id", None)
@@ -1849,8 +1856,14 @@ def send_reminder_emails(request):
         })
 
     try:
-        connection = get_connection()
+        from django.core.mail import get_connection
+        connection = get_connection(
+            username=user,
+            password=pw,
+            fail_silently=False
+        )
         count = connection.send_messages(email_messages)
+
         # Log successful sends
         for msg in email_messages:
             try:
