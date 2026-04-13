@@ -91,42 +91,50 @@ from rest_framework.permissions import AllowAny
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    data = request.data
-    student_id = data.get("studentId") or data.get("student_id")
-    password = data.get("password")
-
-    if not student_id or not password:
-        return Response({"error": "Missing fields"}, status=400)
-
-    student_id = str(student_id).strip()
-    if "@" not in student_id:
-        student_id = student_id.lower()
-
     try:
-        if "@" in student_id:
-            user_obj = Intern.objects.get(email=student_id)
+        data = request.data
+        student_id = data.get("studentId") or data.get("student_id")
+        password = data.get("password")
+
+        if not student_id or not password:
+            return Response({"error": "Missing fields"}, status=400)
+
+        student_id = str(student_id).strip()
+        if "@" not in student_id:
+            student_id = student_id.lower()
+
+        try:
+            if "@" in student_id:
+                user_obj = Intern.objects.get(email=student_id)
+            else:
+                user_obj = Intern.objects.get(student_id=student_id)
+            actual_id = user_obj.student_id
+        except Intern.DoesNotExist:
+            return Response({"error": "This account does not exist or has been permanently deleted."}, status=401)
+
+        if not user_obj.is_active:
+            return Response({"error": "Your account has been deactivated. Please contact the administrator."}, status=403)
+
+        # Use 'username' keyword as it is the standard way to pass the login identifier to authenticate()
+        # even when using a custom user model with a different USERNAME_FIELD.
+        user = authenticate(request, username=actual_id, password=password)
+        
+        if user is not None:
+            token = RefreshToken.for_user(user)
+            return Response({
+                "message": "Login successful",
+                "student_id": user.student_id,
+                "name": user.name,
+                "is_staff": user.is_staff,
+                "session_token": str(token.access_token)
+            })
         else:
-            user_obj = Intern.objects.get(student_id=student_id)
-        actual_id = user_obj.student_id
-    except Intern.DoesNotExist:
-        return Response({"error": "This account does not exist or has been permanently deleted."}, status=401)
-
-    if not user_obj.is_active:
-        return Response({"error": "Your account has been deactivated. Please contact the administrator."}, status=403)
-
-    user = authenticate(request, student_id=actual_id, password=password)
-    
-    if user is not None:
-        token = RefreshToken.for_user(user)
-        return Response({
-            "message": "Login successful",
-            "student_id": user.student_id,
-            "name": user.name,
-            "is_staff": user.is_staff,
-            "session_token": str(token.access_token)
-        })
-    else:
-        return Response({"error": "Invalid login credentials. Please check your password."}, status=401)
+            return Response({"error": "Invalid login credentials. Please check your password."}, status=401)
+    except Exception as e:
+        import traceback
+        print(f"LOGIN ERROR: {str(e)}")
+        traceback.print_exc()
+        return Response({"error": f"Backend Error: {str(e)}"}, status=500)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -1407,53 +1415,60 @@ def upload_dtr(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def admin_login_view(request):
-    data = request.data
-    student_id = data.get("studentId") or data.get("student_id")
-    password = data.get("password")
-
-    if not student_id or not password:
-        return Response({"error": "Missing fields"}, status=400)
-
-    student_id = str(student_id).strip()
-    if "@" not in student_id:
-        student_id = student_id.lower()
-
-    # Automatically create the default admin if it doesn't exist
-    if student_id == "admin":
-        if not Intern.objects.filter(student_id="admin").exists():
-            admin_user = Intern.objects.create_user(
-                student_id="admin",
-                email="admin@dtr.com",
-                name="System Administrator",
-                password="admin"
-            )
-            admin_user.is_staff = True
-            admin_user.save()
-
     try:
-        if "@" in student_id:
-            user_obj = Intern.objects.get(email=student_id)
-            actual_id = user_obj.student_id
-        else:
-            actual_id = student_id
-    except Intern.DoesNotExist:
-        return Response({"error": "Invalid admin credentials"}, status=401)
+        data = request.data
+        student_id = data.get("studentId") or data.get("student_id")
+        password = data.get("password")
 
-    user = authenticate(request, student_id=actual_id, password=password)
-    
-    if user is not None:
-        if not user.is_staff:
-            return Response({"error": "Not authorized as admin"}, status=403)
+        if not student_id or not password:
+            return Response({"error": "Missing fields"}, status=400)
+
+        student_id = str(student_id).strip()
+        if "@" not in student_id:
+            student_id = student_id.lower()
+
+        # Automatically create the default admin if it doesn't exist
+        if student_id == "admin":
+            if not Intern.objects.filter(student_id="admin").exists():
+                admin_user = Intern.objects.create_user(
+                    student_id="admin",
+                    email="admin@dtr.com",
+                    name="System Administrator",
+                    password="admin"
+                )
+                admin_user.is_staff = True
+                admin_user.save()
+
+        try:
+            if "@" in student_id:
+                user_obj = Intern.objects.get(email=student_id)
+                actual_id = user_obj.student_id
+            else:
+                actual_id = student_id
+        except Intern.DoesNotExist:
+            return Response({"error": "Invalid admin credentials"}, status=401)
+
+        # Use 'username' keyword as it is the standard way to pass the login identifier to authenticate()
+        user = authenticate(request, username=actual_id, password=password)
         
-        token = RefreshToken.for_user(user)
-        return Response({
-            "message": "Admin login successful",
-            "admin_id": user.student_id,
-            "name": user.name,
-            "admin_token": str(token.access_token)
-        })
-    else:
-        return Response({"error": "Invalid admin credentials"}, status=401)
+        if user is not None:
+            if not user.is_staff:
+                return Response({"error": "Not authorized as admin"}, status=403)
+            
+            token = RefreshToken.for_user(user)
+            return Response({
+                "message": "Admin login successful",
+                "admin_id": user.student_id,
+                "name": user.name,
+                "admin_token": str(token.access_token)
+            })
+        else:
+            return Response({"error": "Invalid admin credentials"}, status=401)
+    except Exception as e:
+        import traceback
+        print(f"ADMIN LOGIN ERROR: {str(e)}")
+        traceback.print_exc()
+        return Response({"error": f"Backend Error: {str(e)}"}, status=500)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
