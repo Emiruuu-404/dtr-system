@@ -1752,9 +1752,29 @@ def cron_send_reminders(request):
         })
 
     try:
-        from django.core.mail import get_connection
-        connection = get_connection(timeout=15)
-        count = connection.send_messages(email_messages)
+        try:
+            from django.core.mail import get_connection
+            connection = get_connection(timeout=15)
+            count = connection.send_messages(email_messages)
+        except Exception as first_error:
+            # Fallback to port 465 (SSL)
+            if "Network is unreachable" in str(first_error) or "Connection refused" in str(first_error):
+                try:
+                    from django.conf import settings as ds
+                    connection = get_connection(
+                        host=getattr(ds, 'EMAIL_HOST', 'smtp.gmail.com'),
+                        port=465, 
+                        username=ds.EMAIL_HOST_USER, 
+                        password=ds.EMAIL_HOST_PASSWORD,
+                        use_tls=False,
+                        use_ssl=True,
+                        timeout=15
+                    )
+                    count = connection.send_messages(email_messages)
+                except Exception as second_error:
+                     raise Exception(f"Cron Primary fail: {str(first_error)}. Fallback fail: {str(second_error)}")
+            else:
+                raise first_error
         
         # Log successful sends
         logs = []
@@ -1862,14 +1882,35 @@ def send_reminder_emails(request):
         })
 
     try:
-        from django.core.mail import get_connection
-        connection = get_connection(
-            username=user,
-            password=pw,
-            fail_silently=False,
-            timeout=15
-        )
-        count = connection.send_messages(email_messages)
+        # Try the default or configured connection first
+        try:
+            from django.core.mail import get_connection
+            connection = get_connection(
+                username=user,
+                password=pw,
+                fail_silently=False,
+                timeout=15
+            )
+            count = connection.send_messages(email_messages)
+        except Exception as first_error:
+            # If default port (usually 587) is unreachable, try the common alternative SSL port (465)
+            if "Network is unreachable" in str(first_error) or "Connection refused" in str(first_error):
+                try:
+                    connection = get_connection(
+                        host=getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com'),
+                        port=465, # SSL Port
+                        username=user,
+                        password=pw,
+                        use_tls=False,
+                        use_ssl=True,
+                        timeout=15
+                    )
+                    count = connection.send_messages(email_messages)
+                except Exception as second_error:
+                    # If both fail, raise the original error or a combined one
+                    raise Exception(f"Primary error: {str(first_error)}. Secondary attempt (465) error: {str(second_error)}")
+            else:
+                raise first_error
 
         # Log successful sends
         logs = []
