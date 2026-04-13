@@ -253,9 +253,11 @@ CORS_EXPOSE_HEADERS = ['Content-Disposition']
 
 # Email Configuration (Gmail SMTP)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False') == 'True'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')  # Gmail address
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')  # Gmail app password
+EMAIL_TIMEOUT = 15 # Default timeout for SMTP connection
 DEFAULT_FROM_EMAIL = f"OJT DTR System <{os.environ.get('EMAIL_HOST_USER', 'noreply@ojtdtr.systemproj.com')}>"
