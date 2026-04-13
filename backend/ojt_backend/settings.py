@@ -113,14 +113,17 @@ if os.environ.get('RENDER'):
     db_url = os.environ.get("EXTERNAL_DATABASE_URL") or os.environ.get("DATABASE_URL")
     
     if not db_url:
+        print("[DB_DEBUG] ERROR: No DATABASE_URL found!")
         raise ValueError("CRITICAL ERROR: DATABASE_URL (or EXTERNAL_DATABASE_URL) environment variable is MISSING in Render! Please add it in Render Dashboard -> Environment Variables.")
     
+    print(f"[DB_DEBUG] URL starts with: {db_url[:20]}...")
     DATABASES['default'] = dj_database_url.config(
         default=db_url,
         conn_max_age=600,
         conn_health_checks=True,
     )
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+    print(f"[DB_DEBUG] Final DB Host: {DATABASES['default'].get('HOST')}")
 elif os.environ.get("DATABASE_URL"):
     DATABASES['default'] = dj_database_url.config(
         default=os.environ.get("DATABASE_URL"),
@@ -128,6 +131,7 @@ elif os.environ.get("DATABASE_URL"):
         conn_health_checks=True,
     )
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
