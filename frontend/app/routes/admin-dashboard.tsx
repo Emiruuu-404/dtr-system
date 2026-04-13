@@ -373,6 +373,34 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleDeleteRecord = async (recordId: string) => {
+        if (!window.confirm("Are you sure you want to delete this record? This cannot be undone.")) return;
+        try {
+            const adminToken = localStorage.getItem("admin_token");
+            const res = await fetch(`${API_URL}/api/delete-record/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${adminToken}`
+                },
+                body: JSON.stringify({
+                    student_id: selectedIntern.student_id,
+                    record_id: recordId,
+                })
+            });
+            const d = await res.json();
+            if (res.ok) {
+                setFeedbackModal({ show: true, type: 'success', message: "Record deleted successfully" });
+                loadInternData(selectedIntern); // refresh data
+            } else {
+                setFeedbackModal({ show: true, type: 'error', message: d.error || "Failed" });
+            }
+        } catch (e) {
+            setFeedbackModal({ show: true, type: 'error', message: "Network error" });
+        }
+    };
+
+
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
             <header className="mb-8 mt-4 flex items-start justify-between">
@@ -914,8 +942,12 @@ export default function AdminDashboard() {
                                                                         <button onClick={() => setEditingRecord(null)} className="bg-gray-400 text-white text-[10px] uppercase font-bold px-2 py-1 hover:bg-gray-500">Cancel</button>
                                                                     </div>
                                                                 ) : (
-                                                                    <button onClick={() => startEditing(h)} className="text-green-700 font-bold text-xs uppercase hover:underline">Edit</button>
+                                                                    <div className="flex gap-4 justify-center">
+                                                                        <button onClick={() => startEditing(h)} className="text-green-700 font-bold text-[10px] uppercase hover:underline">Edit</button>
+                                                                        <button onClick={() => handleDeleteRecord(h.id)} className="text-rose-600 font-bold text-[10px] uppercase hover:underline">Delete</button>
+                                                                    </div>
                                                                 )}
+
                                                             </td>
                                                         </tr>
                                                         );
