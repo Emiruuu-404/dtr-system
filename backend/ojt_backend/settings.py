@@ -113,7 +113,7 @@ if os.environ.get('RENDER'):
     if not db_url:
         raise ValueError("CRITICAL ERROR: DATABASE_URL environment variable is MISSING in Render! Please add it in Render Dashboard -> Environment Variables.")
     
-    DATABASES['default'] = dj_database_url. config(
+    DATABASES['default'] = dj_database_url.config(
         default=db_url,
         conn_max_age=600,
         conn_health_checks=True,
