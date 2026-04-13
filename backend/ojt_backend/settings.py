@@ -109,9 +109,11 @@ DATABASES = {
 
 # FOR RENDER DEPLOYMENT
 if os.environ.get('RENDER'):
-    db_url = os.environ.get("DATABASE_URL")
+    # Prioritize External URL for build phase compatibility if provided
+    db_url = os.environ.get("EXTERNAL_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    
     if not db_url:
-        raise ValueError("CRITICAL ERROR: DATABASE_URL environment variable is MISSING in Render! Please add it in Render Dashboard -> Environment Variables.")
+        raise ValueError("CRITICAL ERROR: DATABASE_URL (or EXTERNAL_DATABASE_URL) environment variable is MISSING in Render! Please add it in Render Dashboard -> Environment Variables.")
     
     DATABASES['default'] = dj_database_url.config(
         default=db_url,
