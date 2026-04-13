@@ -105,9 +105,9 @@ def login_view(request):
 
         try:
             if "@" in student_id:
-                user_obj = Intern.objects.get(email=student_id)
+                user_obj = Intern.objects.defer('profile_picture_blob').get(email=student_id)
             else:
-                user_obj = Intern.objects.get(student_id=student_id)
+                user_obj = Intern.objects.defer('profile_picture_blob').get(student_id=student_id)
             actual_id = user_obj.student_id
         except Intern.DoesNotExist:
             return Response({"error": "This account does not exist or has been permanently deleted."}, status=401)
@@ -1801,9 +1801,9 @@ def send_reminder_emails(request):
         reminder_type = "morning" if now.hour < 12 else "afternoon"
 
     if target_student_id:
-        active_interns = Intern.objects.filter(student_id=target_student_id)
+        active_interns = Intern.objects.filter(student_id=target_student_id).defer('profile_picture_blob')
     else:
-        active_interns = Intern.objects.filter(is_staff=False, is_active=True)
+        active_interns = Intern.objects.filter(is_staff=False, is_active=True).defer('profile_picture_blob')
 
     email_messages = []
     sent_to = []

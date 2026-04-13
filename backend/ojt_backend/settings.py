@@ -34,9 +34,13 @@ ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS', 'local
 render_external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', '').strip()
 if render_external_hostname and render_external_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_external_hostname)
+# Also add custom domain to allowed hosts
+if 'ojtdtr.systemproj.com' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('ojtdtr.systemproj.com')
 
 # Security settings for production
 if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -62,9 +66,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -237,6 +241,13 @@ if render_external_hostname:
         CORS_ALLOWED_ORIGINS.append(render_origin)
     if render_origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(render_origin)
+
+# Ensure the main production domain is always included
+for domain in ['https://ojtdtr.systemproj.com']:
+    if domain not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(domain)
+    if domain not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(domain)
 
 CORS_EXPOSE_HEADERS = ['Content-Disposition']
 
