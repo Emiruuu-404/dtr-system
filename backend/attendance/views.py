@@ -1752,14 +1752,20 @@ def cron_send_reminders(request):
         })
 
     try:
-        connection = get_connection()
+        from django.core.mail import get_connection
+        connection = get_connection(timeout=15)
         count = connection.send_messages(email_messages)
+        
         # Log successful sends
+        logs = []
         for msg in email_messages:
             try:
                 target = Intern.objects.get(email=msg.to[0])
-                EmailLog.objects.create(intern=target, type=reminder_type, status='success')
+                logs.append(EmailLog(intern=target, type=reminder_type, status='success'))
             except: pass
+        if logs:
+            EmailLog.objects.bulk_create(logs)
+            
         success_msg = f"Dispatched {count} {reminder_type} reminder{'s' if count > 1 else ''} successfully."
         return Response({"message": success_msg, "sent": count, "sent_to": sent_to})
     except Exception as e:
@@ -1860,17 +1866,21 @@ def send_reminder_emails(request):
         connection = get_connection(
             username=user,
             password=pw,
-            fail_silently=False
+            fail_silently=False,
+            timeout=15
         )
         count = connection.send_messages(email_messages)
 
         # Log successful sends
+        logs = []
         for msg in email_messages:
             try:
                 target = Intern.objects.get(email=msg.to[0])
                 log_type = "manual" if target_student_id else reminder_type
-                EmailLog.objects.create(intern=target, type=log_type, status='success')
+                logs.append(EmailLog(intern=target, type=log_type, status='success'))
             except: pass
+        if logs:
+            EmailLog.objects.bulk_create(logs)
 
         if target_student_id:
             msg_text = f"Official reminder shared with {active_interns[0].name} successfully."
@@ -1884,16 +1894,14 @@ def send_reminder_emails(request):
             "skipped": skipped
         })
     except Exception as e:
-        # Log failures
         error_msg = str(e)
         try:
-            for intern in active_interns:
-                 # Check if this intern was part of the intended send list
-                 if any(intern.email == msg.to[0] for msg in email_messages if msg.to):
-                    log_type = "manual" if target_student_id else reminder_type
-                    EmailLog.objects.create(intern=intern, type=log_type, status='failed', error_message=error_msg)
-        except Exception as log_err:
-            print(f"FAILED TO LOG EMAIL ERROR: {str(log_err)}")
+            if email_messages:
+                target_email = email_messages[0].to[0]
+                failed_target = Intern.objects.get(email=target_email)
+                log_type = "manual" if target_student_id else reminder_type
+                EmailLog.objects.create(intern=failed_target, type=log_type, status='failed', error_message=error_msg)
+        except: pass
             
         return Response({"error": f"Failed to send emails: {error_msg}"}, status=500)
 
