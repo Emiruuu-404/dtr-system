@@ -1885,11 +1885,17 @@ def send_reminder_emails(request):
         })
     except Exception as e:
         # Log failures
-        for intern in active_interns:
-             if intern.email in [m.to[0] for m in email_messages]:
-                log_type = "manual" if target_student_id else reminder_type
-                EmailLog.objects.create(intern=intern, type=log_type, status='failed', error_message=str(e))
-        return Response({"error": f"Failed to send emails: {str(e)}"}, status=500)
+        error_msg = str(e)
+        try:
+            for intern in active_interns:
+                 # Check if this intern was part of the intended send list
+                 if any(intern.email == msg.to[0] for msg in email_messages if msg.to):
+                    log_type = "manual" if target_student_id else reminder_type
+                    EmailLog.objects.create(intern=intern, type=log_type, status='failed', error_message=error_msg)
+        except Exception as log_err:
+            print(f"FAILED TO LOG EMAIL ERROR: {str(log_err)}")
+            
+        return Response({"error": f"Failed to send emails: {error_msg}"}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
