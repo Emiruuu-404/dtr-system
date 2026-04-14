@@ -1,6 +1,6 @@
 const defaultApiUrl = import.meta.env.DEV
 	? "http://127.0.0.1:8000"
-	: "https://dtr-system-eqia.onrender.com";
+	: "https://dtr-system-backend.onrender.com";
 
 const configuredApiUrl = (import.meta.env.VITE_API_URL || "").trim();
 const isLocalHostUrl = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApiUrl);
