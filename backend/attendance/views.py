@@ -1937,99 +1937,74 @@ def send_reminder_emails(request):
                 "skipped": skipped
             })
 
-        def send_emails_now_thread(messages, user, pw, target_student_id, reminder_type):
-            """Send emails and close connections properly in thread."""
-            from django.db import connections
-            try:
-                from django.core.mail import get_connection
-                connection = get_connection(
-                    username=user,
-                    password=pw,
-                    fail_silently=False,
-                    timeout=20
-                )
-                count = connection.send_messages(messages)
-            except Exception as first_error:
-                try:
-                    connection = get_connection(
-                        host=getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com'),
-                        port=465,
-                        username=user,
-                        password=pw,
-                        use_tls=False,
-                        use_ssl=True,
-                        timeout=20
-                    )
-                    count = connection.send_messages(messages)
-                except Exception as second_error:
-                    print(f"BACKGROUND EMAIL THREAD ERROR: {first_error}, {second_error}")
-                    return
+        # Resend API Setup
+        resend_api_key = os.environ.get('RESEND_API_KEY')
+        if not resend_api_key:
+            return Response({"error": "RESEND_API_KEY not configured in Render environment."}, status=500)
 
-            # Log success
-            try:
-                logs = []
-                for msg in messages:
-                    try:
-                        target = Intern.objects.get(email=msg.to[0])
-                        l_type = "manual" if target_student_id else reminder_type
-                        logs.append(EmailLog(intern=target, type=l_type, status='success'))
-                    except: pass
-                if logs:
-                    EmailLog.objects.bulk_create(logs)
-            except Exception as e:
-                print(f"ERROR LOGGING EMAILS IN THREAD: {str(e)}")
-            finally:
-                for conn in connections.all(): conn.close()
+        def send_via_resend(msg_list, api_key):
+            import requests
+            url = "https://api.resend.com/emails"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            success_count = 0
+            for m in msg_list:
+                payload = {
+                    "from": settings.DEFAULT_FROM_EMAIL.replace("OJT DTR System <", "onboarding@resend.dev").replace(">", ""),
+                    "to": m.to,
+                    "subject": m.subject,
+                    "html": m.alternatives[0][0] if m.alternatives else m.body
+                }
+                # Fix for Resend testing: On free tier without domain verification, you can ONLY send to your own email address.
+                # If these are real interns, you might need to use a verified domain eventually.
+                # For now, we will try to send everything.
+                try:
+                    r = requests.post(url, headers=headers, json=payload, timeout=10)
+                    if r.status_code in [200, 201]:
+                        success_count += 1
+                        # Log success
+                        try:
+                            target = Intern.objects.get(email=m.to[0])
+                            l_type = "manual" if target_student_id else reminder_type
+                            EmailLog.objects.create(intern=target, type=l_type, status='success')
+                        except: pass
+                    else:
+                        print(f"RESEND ERROR: {r.status_code} - {r.text}")
+                except Exception as e:
+                    print(f"RESEND API EXCEPTION: {str(e)}")
+            return success_count
 
         if target_student_id:
-            # Sync send for single student with fallback
-            try:
-                from django.core.mail import get_connection
-                connection = get_connection(username=user, password=pw, fail_silently=False, timeout=20)
-                count = connection.send_messages(email_messages)
-            except Exception as first_error:
-                # Fallback to port 465 (SSL) if 587 (TLS) fails
-                try:
-                    connection = get_connection(
-                        host=getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com'),
-                        port=465,
-                        username=user,
-                        password=pw,
-                        use_tls=False,
-                        use_ssl=True,
-                        timeout=20
-                    )
-                    count = connection.send_messages(email_messages)
-                except Exception as second_error:
-                    error_msg = f"Primary fail: {str(first_error)}. Fallback fail: {str(second_error)}"
-                    # Fail log
-                    try:
-                        failed_target = Intern.objects.get(student_id=target_student_id)
-                        EmailLog.objects.create(intern=failed_target, type='manual', status='failed', error_message=error_msg[:500])
-                    except: pass
-                    return Response({"error": f"Email Error: {error_msg}"}, status=500)
-            
-            # Log success
-            try:
-                log_target = active_interns[0]
-                EmailLog.objects.create(intern=log_target, type='manual', status='success')
-            except: pass
-                    
-            return Response({
-                "message": f"Reminder sent successfully to {sent_to[0]}.",
-                "sent": count,
-                "sent_to": sent_to,
-                "skipped": skipped,
-                "mode": "sent"
-            })
+            # Sync send for single student
+            count = send_via_resend(email_messages, resend_api_key)
+            if count > 0:
+                return Response({
+                    "message": f"Reminder sent successfully via Resend API to {sent_to[0]}.",
+                    "sent": count,
+                    "sent_to": sent_to,
+                    "skipped": skipped
+                })
+            else:
+                return Response({"error": "Failed to send email via Resend API. Check your API key and internal logs."}, status=500)
 
         # Bulk send in background
-        thread = threading.Thread(
-            target=send_emails_now_thread,
-            args=(email_messages, user, pw, target_student_id, reminder_type)
-        )
+        def background_resend():
+            send_via_resend(email_messages, resend_api_key)
+            for conn in connections.all(): conn.close()
+
+        thread = threading.Thread(target=background_resend)
         thread.daemon = True
         thread.start()
+
+        return Response({
+            "message": f"Bulk dispatch started for {len(email_messages)} intern(s) via Resend API.",
+            "sent_queued": len(email_messages),
+            "sent_to": sent_to,
+            "skipped": skipped
+        })
 
         msg_text = f"System-wide dispatch started for {len(email_messages)} intern(s). You can check the logs in a few moments."
 
