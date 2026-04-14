@@ -1937,33 +1937,31 @@ def send_reminder_emails(request):
                 "skipped": skipped
             })
 
-        # Resend API Setup
-        resend_api_key = os.environ.get('RESEND_API_KEY')
-        if not resend_api_key:
-            return Response({"error": "RESEND_API_KEY not configured in Render environment."}, status=500)
+        # Brevo API Setup
+        brevo_api_key = os.environ.get('BREVO_API_KEY')
+        if not brevo_api_key:
+            return Response({"error": "BREVO_API_KEY not configured in Render environment."}, status=500)
 
-        def send_via_resend(msg_list, api_key):
+        def send_via_brevo(msg_list, api_key):
             import requests
-            url = "https://api.resend.com/emails"
+            url = "https://api.brevo.com/v3/smtp/email"
             headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
+                "api-key": api_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json"
             }
             
             success_count = 0
             for m in msg_list:
                 payload = {
-                    "from": settings.DEFAULT_FROM_EMAIL.replace("OJT DTR System <", "onboarding@resend.dev").replace(">", ""),
-                    "to": m.to,
+                    "sender": {"name": "OJT DTR System", "email": settings.EMAIL_HOST_USER or "noreply@ojtdtr.systemproj.com"},
+                    "to": [{"email": m.to[0]}],
                     "subject": m.subject,
-                    "html": m.alternatives[0][0] if m.alternatives else m.body
+                    "htmlContent": m.alternatives[0][0] if m.alternatives else m.body
                 }
-                # Fix for Resend testing: On free tier without domain verification, you can ONLY send to your own email address.
-                # If these are real interns, you might need to use a verified domain eventually.
-                # For now, we will try to send everything.
                 try:
                     r = requests.post(url, headers=headers, json=payload, timeout=10)
-                    if r.status_code in [200, 201]:
+                    if r.status_code in [200, 201, 202]:
                         success_count += 1
                         # Log success
                         try:
@@ -1972,35 +1970,35 @@ def send_reminder_emails(request):
                             EmailLog.objects.create(intern=target, type=l_type, status='success')
                         except: pass
                     else:
-                        print(f"RESEND ERROR: {r.status_code} - {r.text}")
+                        print(f"BREVO ERROR: {r.status_code} - {r.text}")
                 except Exception as e:
-                    print(f"RESEND API EXCEPTION: {str(e)}")
+                    print(f"BREVO API EXCEPTION: {str(e)}")
             return success_count
 
         if target_student_id:
             # Sync send for single student
-            count = send_via_resend(email_messages, resend_api_key)
+            count = send_via_brevo(email_messages, brevo_api_key)
             if count > 0:
                 return Response({
-                    "message": f"Reminder sent successfully via Resend API to {sent_to[0]}.",
+                    "message": f"Reminder sent successfully via Brevo to {sent_to[0]}.",
                     "sent": count,
                     "sent_to": sent_to,
                     "skipped": skipped
                 })
             else:
-                return Response({"error": "Failed to send email via Resend API. Check your API key and internal logs."}, status=500)
+                return Response({"error": "Failed to send email via Brevo API. Check if your Sender Email is verified in Brevo."}, status=500)
 
         # Bulk send in background
-        def background_resend():
-            send_via_resend(email_messages, resend_api_key)
+        def background_brevo():
+            send_via_brevo(email_messages, brevo_api_key)
             for conn in connections.all(): conn.close()
 
-        thread = threading.Thread(target=background_resend)
+        thread = threading.Thread(target=background_brevo)
         thread.daemon = True
         thread.start()
 
         return Response({
-            "message": f"Bulk dispatch started for {len(email_messages)} intern(s) via Resend API.",
+            "message": f"Bulk dispatch started for {len(email_messages)} intern(s) via Brevo API.",
             "sent_queued": len(email_messages),
             "sent_to": sent_to,
             "skipped": skipped
