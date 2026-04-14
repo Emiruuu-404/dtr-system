@@ -1807,52 +1807,84 @@ def cron_send_reminders(request):
             "skipped": []
         })
 
+    # Brevo API Setup
+    brevo_api_key = os.environ.get('BREVO_API_KEY')
+    if not brevo_api_key:
+        return Response({"error": "BREVO_API_KEY not configured"}, status=500)
+
+    active_interns = Intern.objects.filter(is_staff=False, is_active=True)
+    email_messages = []
+    sent_to = []
+
+    for intern in active_interns:
+        if not intern.email:
+            continue
+
+        record = Attendance.objects.filter(
+            student_id=intern.student_id,
+            date=today
+        ).first()
+
+        if reminder_type == 'morning':
+            if record and record.am_time_in:
+                continue
+            subject = '⏰ OJT Time-In Reminder'
+            plain_body = f"Good morning, {intern.name}! Please TIME IN for your OJT today ({date_str}). Log at: https://ojtdtr.systemproj.com"
+        else:
+            if record and record.pm_time_out:
+                continue
+            if not record or not record.am_time_in:
+                continue
+            subject = '⏰ OJT Time-Out Reminder'
+            plain_body = f"Good afternoon, {intern.name}! Please TIME OUT before you leave ({date_str}). Log at: https://ojtdtr.systemproj.com"
+
+        html_body = get_reminder_html(intern.name, reminder_type, date_str)
+        # Store data for API call
+        email_messages.append({
+            "to": [{"email": intern.email}],
+            "subject": subject,
+            "htmlContent": html_body
+        })
+        sent_to.append(intern.name)
+
+    if not email_messages:
+        return Response({
+            "message": f"No {reminder_type} reminders needed. All active interns have already completed their logs for today.",
+            "sent": 0,
+            "sent_to": [],
+            "skipped": []
+        })
+
     try:
-        try:
-            from django.core.mail import get_connection
-            connection = get_connection(timeout=15)
-            count = connection.send_messages(email_messages)
-        except Exception as first_error:
-            # Fallback to port 465 (SSL)
-            if "Network is unreachable" in str(first_error) or "Connection refused" in str(first_error):
-                try:
-                    from django.conf import settings as ds
-                    connection = get_connection(
-                        host=getattr(ds, 'EMAIL_HOST', 'smtp.gmail.com'),
-                        port=465, 
-                        username=ds.EMAIL_HOST_USER, 
-                        password=ds.EMAIL_HOST_PASSWORD,
-                        use_tls=False,
-                        use_ssl=True,
-                        timeout=15
-                    )
-                    count = connection.send_messages(email_messages)
-                except Exception as second_error:
-                     raise Exception(f"Cron Primary fail: {str(first_error)}. Fallback fail: {str(second_error)}")
-            else:
-                raise first_error
+        import requests
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "api-key": brevo_api_key,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
         
-        # Log successful sends
-        logs = []
-        for msg in email_messages:
-            try:
-                target = Intern.objects.get(email=msg.to[0])
-                logs.append(EmailLog(intern=target, type=reminder_type, status='success'))
-            except: pass
-        if logs:
-            EmailLog.objects.bulk_create(logs)
-            
-        success_msg = f"Dispatched {count} {reminder_type} reminder{'s' if count > 1 else ''} successfully."
+        count = 0
+        for payload_data in email_messages:
+            full_payload = {
+                "sender": {"name": "OJT DTR System", "email": django_settings.EMAIL_HOST_USER or "noreply@ojtdtr.systemproj.com"},
+                "to": payload_data["to"],
+                "subject": payload_data["subject"],
+                "htmlContent": payload_data["htmlContent"]
+            }
+            r = requests.post(url, headers=headers, json=full_payload, timeout=10)
+            if r.status_code in [200, 201, 202]:
+                count += 1
+                # Log success
+                try:
+                    target = Intern.objects.get(email=payload_data["to"][0]["email"])
+                    EmailLog.objects.create(intern=target, type=reminder_type, status='success')
+                except: pass
+        
+        success_msg = f"Cron: Dispatched {count} {reminder_type} reminder{'s' if count > 1 else ''} successfully via Brevo."
         return Response({"message": success_msg, "sent": count, "sent_to": sent_to})
     except Exception as e:
-        # Log failure for everyone in the batch if target_student_id is not set
-        error_msg = str(e)
-        if target_student_id and active_interns:
-            EmailLog.objects.create(intern=active_interns[0], type='manual', status='failed', error_message=error_msg)
-        else:
-            # For bulk, log a system-level failure if possible or just return response
-            pass
-        return Response({"error": f"Email Error: {error_msg}. Check if your App Password is correct and SMTP is allowed."}, status=500)
+        return Response({"error": f"Cron Brevo Error: {str(e)}"}, status=500)
 
 
 @api_view(['POST'])
