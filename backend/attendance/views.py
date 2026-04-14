@@ -11,7 +11,7 @@ import io
 from datetime import datetime, time, timedelta
 import math
 import uuid
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
@@ -90,6 +90,7 @@ from rest_framework.permissions import AllowAny
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def login_view(request):
     try:
         data = request.data
@@ -1414,6 +1415,7 @@ def upload_dtr(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def admin_login_view(request):
     try:
         data = request.data
