@@ -1936,8 +1936,8 @@ def send_reminder_emails(request):
             "skipped": skipped
         })
 
-    def send_emails_background(messages, user, pw, target_student_id, reminder_type, sent_to_names):
-        """Helper to send emails in a separate thread to avoid HTTP timeout."""
+    def send_emails_now(messages, user, pw, target_student_id, reminder_type):
+        """Send emails immediately and raise if SMTP fails."""
         try:
             from django.core.mail import get_connection
             connection = get_connection(
@@ -1962,15 +1962,7 @@ def send_reminder_emails(request):
                 count = connection.send_messages(messages)
             except Exception as second_error:
                 error_msg = f"Primary error: {str(first_error)}. Secondary error (465): {str(second_error)}"
-                print(f"BACKGROUND EMAIL ERROR: {error_msg}")
-                # Log failure to DB
-                try:
-                    target_email = messages[0].to[0]
-                    failed_target = Intern.objects.get(email=target_email)
-                    log_type = "manual" if target_student_id else reminder_type
-                    EmailLog.objects.create(intern=failed_target, type=log_type, status='failed', error_message=error_msg[:500])
-                except: pass
-                return
+                raise Exception(error_msg)
 
         # Log success
         try:
@@ -1985,11 +1977,46 @@ def send_reminder_emails(request):
                 EmailLog.objects.bulk_create(logs)
         except Exception as e:
             print(f"ERROR LOGGING EMAILS: {str(e)}")
+        return count
+
+    def log_email_failure(messages, target_student_id, reminder_type, error_msg):
+        """Persist failed sends so admins can inspect them later."""
+        log_type = "manual" if target_student_id else reminder_type
+        for msg in messages:
+            try:
+                failed_target = Intern.objects.get(email=msg.to[0])
+                EmailLog.objects.create(
+                    intern=failed_target,
+                    type=log_type,
+                    status='failed',
+                    error_message=error_msg[:500]
+                )
+            except Exception:
+                pass
+
+    if target_student_id:
+        try:
+            count = send_emails_now(email_messages, user, pw, target_student_id, reminder_type)
+        except Exception as e:
+            error_msg = str(e)
+            print(f"MANUAL EMAIL ERROR: {error_msg}")
+            log_email_failure(email_messages, target_student_id, reminder_type, error_msg)
+            return Response({
+                "error": f"Email Error: {error_msg}. Check EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, and your SMTP settings."
+            }, status=500)
+
+        return Response({
+            "message": f"Reminder sent successfully to {sent_to[0]}.",
+            "sent": count,
+            "sent_to": sent_to,
+            "skipped": skipped,
+            "mode": "sent"
+        })
 
     # Start the background thread
     thread = threading.Thread(
-        target=send_emails_background, 
-        args=(email_messages, user, pw, target_student_id, reminder_type, sent_to)
+        target=send_emails_now,
+        args=(email_messages, user, pw, target_student_id, reminder_type)
     )
     thread.daemon = True
     thread.start()
