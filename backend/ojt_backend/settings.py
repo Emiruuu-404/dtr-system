@@ -217,17 +217,23 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'uploads'
 
+# CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ORIGIN_ALLOW_ALL = True  # Fallback for older library versions
+CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOWED_ORIGINS = [
     origin.strip() for origin in os.environ.get(
         'CORS_ALLOWED_ORIGINS',
         'https://ojtdtr.systemproj.com,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174'
     ).split(',') if origin.strip()
 ]
+
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^http://localhost:\d+$',
     r'^http://127\.0\.0\.1:\d+$',
 ]
+
 CSRF_TRUSTED_ORIGINS = [
     origin.strip() for origin in os.environ.get(
         'CSRF_TRUSTED_ORIGINS',
@@ -248,6 +254,18 @@ for domain in ['https://ojtdtr.systemproj.com']:
         CORS_ALLOWED_ORIGINS.append(domain)
     if domain not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(domain)
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 CORS_EXPOSE_HEADERS = ['Content-Disposition']
 

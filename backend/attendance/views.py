@@ -11,6 +11,7 @@ import io
 from datetime import datetime, time, timedelta
 import math
 import uuid
+import threading
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -104,6 +105,18 @@ def login_view(request):
         if "@" not in student_id:
             student_id = student_id.lower()
 
+        # Automatically create the default admin if it doesn't exist
+        if student_id == "admin":
+            if not Intern.objects.filter(student_id="admin").exists():
+                admin_user = Intern.objects.create_user(
+                    student_id="admin",
+                    email="admin@dtr.com",
+                    name="System Administrator",
+                    password="admin"
+                )
+                admin_user.is_staff = True
+                admin_user.save()
+
         try:
             if "@" in student_id:
                 user_obj = Intern.objects.defer('profile_picture_blob').get(email__iexact=student_id)
@@ -111,7 +124,8 @@ def login_view(request):
                 user_obj = Intern.objects.defer('profile_picture_blob').get(student_id=student_id)
             actual_id = user_obj.student_id
         except Intern.DoesNotExist:
-            return Response({"error": "User not found"}, status=401)
+            print(f"LOGIN FAILED: User {student_id} not found")
+            return Response({"error": f"User '{student_id}' not found. Please register first or check your ID."}, status=401)
 
         if not user_obj.is_active:
             return Response({"error": "Your account has been deactivated. Please contact the administrator."}, status=403)
@@ -1922,70 +1936,77 @@ def send_reminder_emails(request):
             "skipped": skipped
         })
 
-    try:
-        # Try the default or configured connection first
+    def send_emails_background(messages, user, pw, target_student_id, reminder_type, sent_to_names):
+        """Helper to send emails in a separate thread to avoid HTTP timeout."""
         try:
             from django.core.mail import get_connection
             connection = get_connection(
                 username=user,
                 password=pw,
                 fail_silently=False,
-                timeout=15
+                timeout=20
             )
-            count = connection.send_messages(email_messages)
+            count = connection.send_messages(messages)
         except Exception as first_error:
-            # If default port (usually 587) is unreachable, try the common alternative SSL port (465)
-            if "Network is unreachable" in str(first_error) or "Connection refused" in str(first_error):
-                try:
-                    connection = get_connection(
-                        host=getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com'),
-                        port=465, # SSL Port
-                        username=user,
-                        password=pw,
-                        use_tls=False,
-                        use_ssl=True,
-                        timeout=15
-                    )
-                    count = connection.send_messages(email_messages)
-                except Exception as second_error:
-                    # If both fail, raise the original error or a combined one
-                    raise Exception(f"Primary error: {str(first_error)}. Secondary attempt (465) error: {str(second_error)}")
-            else:
-                raise first_error
-
-        # Log successful sends
-        logs = []
-        for msg in email_messages:
+            # Fallback to SSL Port 465 if default fails
             try:
-                target = Intern.objects.get(email=msg.to[0])
-                log_type = "manual" if target_student_id else reminder_type
-                logs.append(EmailLog(intern=target, type=log_type, status='success'))
-            except: pass
-        if logs:
-            EmailLog.objects.bulk_create(logs)
+                connection = get_connection(
+                    host=getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com'),
+                    port=465,
+                    username=user,
+                    password=pw,
+                    use_tls=False,
+                    use_ssl=True,
+                    timeout=20
+                )
+                count = connection.send_messages(messages)
+            except Exception as second_error:
+                error_msg = f"Primary error: {str(first_error)}. Secondary error (465): {str(second_error)}"
+                print(f"BACKGROUND EMAIL ERROR: {error_msg}")
+                # Log failure to DB
+                try:
+                    target_email = messages[0].to[0]
+                    failed_target = Intern.objects.get(email=target_email)
+                    log_type = "manual" if target_student_id else reminder_type
+                    EmailLog.objects.create(intern=failed_target, type=log_type, status='failed', error_message=error_msg[:500])
+                except: pass
+                return
 
-        if target_student_id:
-            msg_text = f"Official reminder shared with {active_interns[0].name} successfully."
-        else:
-            msg_text = f"System-wide dispatch complete. {count} reminder{'s' if count > 1 else ''} delivered."
-
-        return Response({
-            "message": msg_text,
-            "sent": count,
-            "sent_to": sent_to,
-            "skipped": skipped
-        })
-    except Exception as e:
-        error_msg = str(e)
+        # Log success
         try:
-            if email_messages:
-                target_email = email_messages[0].to[0]
-                failed_target = Intern.objects.get(email=target_email)
-                log_type = "manual" if target_student_id else reminder_type
-                EmailLog.objects.create(intern=failed_target, type=log_type, status='failed', error_message=error_msg)
-        except: pass
-            
-        return Response({"error": f"Failed to send emails: {error_msg}"}, status=500)
+            logs = []
+            for msg in messages:
+                try:
+                    target = Intern.objects.get(email=msg.to[0])
+                    log_type = "manual" if target_student_id else reminder_type
+                    logs.append(EmailLog(intern=target, type=log_type, status='success'))
+                except: pass
+            if logs:
+                EmailLog.objects.bulk_create(logs)
+        except Exception as e:
+            print(f"ERROR LOGGING EMAILS: {str(e)}")
+
+    # Start the background thread
+    thread = threading.Thread(
+        target=send_emails_background, 
+        args=(email_messages, user, pw, target_student_id, reminder_type, sent_to)
+    )
+    thread.daemon = True
+    thread.start()
+
+    # Return immediately to avoid timeout
+    if target_student_id:
+        msg_text = f"Reminder for {sent_to[0]} is being processed and will be sent shortly."
+    else:
+        msg_text = f"System-wide dispatch started for {len(email_messages)} intern(s). You can check the logs in a few moments."
+
+    return Response({
+        "message": msg_text,
+        "sent_queued": len(email_messages),
+        "sent_to": sent_to,
+        "skipped": skipped,
+        "mode": "background_processing"
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
