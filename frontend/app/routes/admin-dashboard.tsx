@@ -823,7 +823,15 @@ export default function AdminDashboard() {
                                                 });
                                                 const d = await res.json();
                                                 if (res.ok) {
-                                                    setFeedbackModal({ show: true, type: d.sent > 0 ? 'success' : 'error', message: d.message });
+                                                    const hasQueuedSends = typeof d.sent_queued === "number" ? d.sent_queued > 0 : false;
+                                                    const hasImmediateSends = typeof d.sent === "number" ? d.sent > 0 : false;
+                                                    const isSuccessState = d.mode === "background_processing" || hasQueuedSends || hasImmediateSends || Boolean(d.message);
+
+                                                    setFeedbackModal({
+                                                        show: true,
+                                                        type: isSuccessState ? 'success' : 'error',
+                                                        message: d.message
+                                                    });
                                                 } else {
                                                     setFeedbackModal({ show: true, type: 'error', message: d.error || "Failed" });
                                                 }

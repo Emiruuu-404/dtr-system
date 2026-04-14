@@ -2002,6 +2002,7 @@ def send_reminder_emails(request):
 
     return Response({
         "message": msg_text,
+        "sent": len(email_messages),
         "sent_queued": len(email_messages),
         "sent_to": sent_to,
         "skipped": skipped,
@@ -2055,4 +2056,4 @@ def get_email_logs(request):
     } for l in logs]
     return Response({"logs": results})
 
-
+
