@@ -15,6 +15,7 @@ export default function Settings() {
     // Profile form
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [studentIdInput, setStudentIdInput] = useState("");
     const [profilePicture, setProfilePicture] = useState<string | null>(null);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -44,6 +45,7 @@ export default function Settings() {
                 setProfile(data);
                 setName(data.name);
                 setEmail(data.email);
+                setStudentIdInput(data.student_id);
                 setProfilePicture(data.profile_picture);
                 setLoading(false);
             })
@@ -103,6 +105,34 @@ export default function Settings() {
                 if (data.message) {
                     showStatus("Profile updated!", "success");
                     localStorage.setItem("name", data.name);
+                } else {
+                    showStatus(data.error, "error");
+                }
+            })
+            .catch(() => showStatus("Server error", "error"));
+    };
+
+    const handleChangeStudentId = (e: React.FormEvent) => {
+        e.preventDefault();
+        const old_id = localStorage.getItem("student_id");
+        const new_id = studentIdInput.trim();
+
+        if (!new_id) {
+            showStatus("New ID is required", "error");
+            return;
+        }
+
+        fetch(`${API_URL}/api/update-id/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ old_id, new_id })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message) {
+                    showStatus("ID Number updated!", "success");
+                    localStorage.setItem("student_id", data.new_id);
+                    setProfile({ ...profile, student_id: data.new_id });
                 } else {
                     showStatus(data.error, "error");
                 }
@@ -278,6 +308,32 @@ export default function Settings() {
 
                 <button type="submit" className="w-full bg-green-700 text-white p-3 border-2 border-green-900 hover:bg-green-800 transition-colors font-black uppercase tracking-widest flex items-center justify-center gap-2 active:translate-x-1 active:translate-y-1">
                     <Save size={18} strokeWidth={3} /> Save Changes
+                </button>
+            </form>
+
+            {/* Update Student ID */}
+            <form onSubmit={handleChangeStudentId} className="bg-white p-6 border-2 border-green-900 relative mb-6">
+                <div className="absolute inset-0 bg-green-900 -z-10 translate-x-1 translate-y-1"></div>
+                <h2 className="font-black text-gray-900 text-lg mb-5 uppercase tracking-wide border-b-2 border-green-900 pb-3 flex items-center gap-2">
+                    <IdCard size={20} strokeWidth={3} className="text-green-700" />
+                    Change ID Number
+                </h2>
+
+                <div className="space-y-4 mb-6">
+                    <div>
+                        <label className="block text-[10px] font-black tracking-widest uppercase text-gray-500 mb-2">Student ID / ID Number</label>
+                        <div className="border-2 border-green-900 flex items-stretch">
+                            <div className="bg-green-100 px-4 flex items-center border-r-2 border-green-900">
+                                <IdCard size={16} strokeWidth={3} className="text-green-900" />
+                            </div>
+                            <input type="text" value={studentIdInput} onChange={e => setStudentIdInput(e.target.value)} required className="w-full p-3 font-bold text-gray-900 focus:outline-none focus:bg-green-50" />
+                        </div>
+                        <p className="mt-2 text-[10px] font-bold text-green-700 uppercase tracking-tight italic">* Changing your ID will automatically sync all your attendance records.</p>
+                    </div>
+                </div>
+
+                <button type="submit" className="w-full bg-green-700 text-white p-3 border-2 border-green-900 hover:bg-green-800 transition-colors font-black uppercase tracking-widest flex items-center justify-center gap-2 active:translate-x-1 translate-y-1">
+                    <Save size={18} strokeWidth={3} /> Update ID Number
                 </button>
             </form>
 

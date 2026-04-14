@@ -1042,6 +1042,45 @@ def update_profile(request):
     except Intern.DoesNotExist:
         return JsonResponse({"error": "Account not found"}, status=404)
 
+@csrf_exempt
+def update_id(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST request required"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        old_id = data.get("old_id")
+        new_id = str(data.get("new_id", "")).strip().lower()
+
+        if not old_id or not new_id:
+            return JsonResponse({"error": "Missing old_id or new_id"}, status=400)
+
+        # Check if new ID already exists
+        if Intern.objects.filter(student_id=new_id).exists():
+            return JsonResponse({"error": "ID na itong gamit ng iba"}, status=400)
+
+        try:
+            user = Intern.objects.get(student_id=old_id)
+            
+            # Manual update for all linked tables because they use CharField instead of FK
+            Attendance.objects.filter(student_id=old_id).update(student_id=new_id)
+            AccomplishmentReport.objects.filter(student_id=old_id).update(student_id=new_id)
+            HistoryRecord.objects.filter(student_id=old_id).update(student_id=new_id)
+            
+            # Update the main user record
+            user.student_id = new_id
+            user.save()
+
+            return JsonResponse({
+                "message": "ID updated successfully",
+                "new_id": new_id
+            })
+        except Intern.DoesNotExist:
+            return JsonResponse({"error": "Account not found"}, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": f"Server Error: {str(e)}"}, status=500)
+
 
 def get_profile(request):
     student_id = str(request.GET.get("student_id", "")).strip().lower()
