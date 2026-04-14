@@ -1,4 +1,5 @@
 import json
+import os
 import mimetypes
 import re, pdfplumber
 from django.shortcuts import get_object_or_404
