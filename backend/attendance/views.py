@@ -105,12 +105,12 @@ def login_view(request):
 
         try:
             if "@" in student_id:
-                user_obj = Intern.objects.defer('profile_picture_blob').get(email=student_id)
+                user_obj = Intern.objects.defer('profile_picture_blob').get(email__iexact=student_id)
             else:
                 user_obj = Intern.objects.defer('profile_picture_blob').get(student_id=student_id)
             actual_id = user_obj.student_id
         except Intern.DoesNotExist:
-            return Response({"error": "This account does not exist or has been permanently deleted."}, status=401)
+            return Response({"error": "User not found"}, status=401)
 
         if not user_obj.is_active:
             return Response({"error": "Your account has been deactivated. Please contact the administrator."}, status=403)

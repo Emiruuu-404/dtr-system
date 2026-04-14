@@ -20,10 +20,90 @@ from attendance.views import (
 )
 
 def home(request):
-    return redirect('/login/')
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OJT DTR Backend Status</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            body { 
+                font-family: 'Inter', sans-serif; 
+                background-color: #f0f0f0; 
+                display: flex; 
+                justify-content: center; 
+                align-items: center; 
+                height: 100vh; 
+                margin: 0;
+                color: #064e3b;
+            }
+            .container {
+                background: white;
+                padding: 3rem;
+                border: 4px solid #064e3b;
+                box-shadow: 10px 10px 0px #064e3b;
+                max-width: 500px;
+                text-align: center;
+                position: relative;
+            }
+            .container::before {
+                content: '';
+                position: absolute;
+                top: -10px;
+                left: -10px;
+                right: -10px;
+                bottom: -10px;
+                border: 1px solid #064e3b;
+                z-index: -1;
+            }
+            h1 { font-weight: 900; font-size: 2.5rem; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: -1px; }
+            .status { 
+                display: inline-block;
+                background-color: #d1fae5;
+                padding: 0.5rem 1rem;
+                border: 2px solid #064e3b;
+                font-weight: 700;
+                margin-top: 1rem;
+            }
+            .dot {
+                height: 12px;
+                width: 12px;
+                background-color: #10b981;
+                border-radius: 50%;
+                display: inline-block;
+                margin-right: 8px;
+                animation: pulse 1.5s infinite;
+            }
+            @keyframes pulse {
+                0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+                70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+                100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+            }
+            p { font-weight: 700; opacity: 0.8; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>OJT DTR</h1>
+            <p>API Service Layer</p>
+            <div class="status">
+                <span class="dot"></span>
+                SYSTEM OPERATIONAL
+            </div>
+            <p style="margin-top: 2rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">
+                CONNECTED TO SUPABASE DATABASE
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    return HttpResponse(html_content)
 
 urlpatterns =[
     path('', home),
+    path('login/', home), # Redirect /login/ to status page too
     path('admin/', admin.site.urls),
     path('api/login/', login_view),
     path('api/admin-login/', admin_login_view),
