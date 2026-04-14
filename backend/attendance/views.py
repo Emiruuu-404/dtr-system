@@ -1982,31 +1982,46 @@ def send_reminder_emails(request):
                 for conn in connections.all(): conn.close()
 
         if target_student_id:
-            # Sync send for single student
+            # Sync send for single student with fallback
             try:
                 from django.core.mail import get_connection
                 connection = get_connection(username=user, password=pw, fail_silently=False, timeout=20)
                 count = connection.send_messages(email_messages)
-                
-                # Log success
+            except Exception as first_error:
+                # Fallback to port 465 (SSL) if 587 (TLS) fails
+                try:
+                    connection = get_connection(
+                        host=getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com'),
+                        port=465,
+                        username=user,
+                        password=pw,
+                        use_tls=False,
+                        use_ssl=True,
+                        timeout=20
+                    )
+                    count = connection.send_messages(email_messages)
+                except Exception as second_error:
+                    error_msg = f"Primary fail: {str(first_error)}. Fallback fail: {str(second_error)}"
+                    # Fail log
+                    try:
+                        failed_target = Intern.objects.get(student_id=target_student_id)
+                        EmailLog.objects.create(intern=failed_target, type='manual', status='failed', error_message=error_msg[:500])
+                    except: pass
+                    return Response({"error": f"Email Error: {error_msg}"}, status=500)
+            
+            # Log success
+            try:
                 log_target = active_interns[0]
                 EmailLog.objects.create(intern=log_target, type='manual', status='success')
-                
-                return Response({
-                    "message": f"Reminder sent successfully to {sent_to[0]}.",
-                    "sent": count,
-                    "sent_to": sent_to,
-                    "skipped": skipped,
-                    "mode": "sent"
-                })
-            except Exception as e:
-                error_msg = str(e)
-                # Fail log
-                try:
-                    failed_target = Intern.objects.get(student_id=target_student_id)
-                    EmailLog.objects.create(intern=failed_target, type='manual', status='failed', error_message=error_msg[:500])
-                except: pass
-                return Response({"error": f"Email Error: {error_msg}"}, status=500)
+            except: pass
+                    
+            return Response({
+                "message": f"Reminder sent successfully to {sent_to[0]}.",
+                "sent": count,
+                "sent_to": sent_to,
+                "skipped": skipped,
+                "mode": "sent"
+            })
 
         # Bulk send in background
         thread = threading.Thread(
