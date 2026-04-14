@@ -34,9 +34,10 @@ ALLOWED_HOSTS = [host.strip() for host in os.environ.get('ALLOWED_HOSTS', 'local
 render_external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', '').strip()
 if render_external_hostname and render_external_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_external_hostname)
-# Also add custom domain to allowed hosts
 if 'ojtdtr.systemproj.com' not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append('ojtdtr.systemproj.com')
+if 'dtr-system-eqia.onrender.com' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('dtr-system-eqia.onrender.com')
 
 # Security settings for production
 if not DEBUG:
@@ -218,8 +219,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'uploads'
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ORIGIN_ALLOW_ALL = True  # Fallback for older library versions
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [

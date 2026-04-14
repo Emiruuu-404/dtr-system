@@ -1861,180 +1861,176 @@ def send_reminder_emails(request):
     from django.core.mail import EmailMultiAlternatives, get_connection
     from django.conf import settings
     from attendance.email_templates import get_reminder_html
+    import traceback
 
-    if not request.user.is_staff:
-        return Response({"error": "Admin access required"}, status=403)
+    try:
+        if not request.user.is_staff:
+            return Response({"error": "Admin access required"}, status=403)
 
-    user = (settings.EMAIL_HOST_USER or "").strip()
-    pw = (settings.EMAIL_HOST_PASSWORD or "").strip().replace(" ", "")
+        user = (settings.EMAIL_HOST_USER or "").strip()
+        pw = (settings.EMAIL_HOST_PASSWORD or "").strip().replace(" ", "")
 
-    if not user or not pw:
-        return Response({"error": "Email configuration is incomplete. Please check EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in Render settings."}, status=500)
+        if not user or not pw:
+            return Response({"error": "Email configuration is incomplete. Please check EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in Render settings."}, status=500)
 
+        reminder_type = request.data.get("type", "auto")
+        target_student_id = request.data.get("student_id", None)
+        now = timezone.localtime()
+        today = now.date()
+        date_str = today.strftime('%B %d, %Y')
 
-    reminder_type = request.data.get("type", "auto")
-    target_student_id = request.data.get("student_id", None)
-    now = timezone.localtime()
-    today = now.date()
-    date_str = today.strftime('%B %d, %Y')
+        if reminder_type == "auto":
+            reminder_type = "morning" if now.hour < 12 else "afternoon"
 
-    if reminder_type == "auto":
-        reminder_type = "morning" if now.hour < 12 else "afternoon"
-
-    if target_student_id:
-        active_interns = Intern.objects.filter(student_id=target_student_id).defer('profile_picture_blob')
-    else:
-        active_interns = Intern.objects.filter(is_staff=False, is_active=True).defer('profile_picture_blob')
-
-    email_messages = []
-    sent_to = []
-    skipped = []
-
-    for intern in active_interns:
-        if not intern.email:
-            skipped.append(f"{intern.name} (no email)")
-            continue
-
-        record = Attendance.objects.filter(
-            student_id=intern.student_id,
-            date=today
-        ).first()
-
-        if reminder_type == 'morning':
-            if not target_student_id and record and record.am_time_in:
-                skipped.append(f"{intern.name} (already timed in)")
-                continue
-            subject = '⏰ OJT Time-In Reminder'
-            plain_body = f"Good morning, {intern.name}! Please TIME IN for your OJT today ({date_str}). Log at: https://ojtdtr.systemproj.com"
+        if target_student_id:
+            active_interns = Intern.objects.filter(student_id=target_student_id).defer('profile_picture_blob')
         else:
-            if not target_student_id and record and record.pm_time_out:
-                skipped.append(f"{intern.name} (already timed out)")
+            active_interns = Intern.objects.filter(is_staff=False, is_active=True).defer('profile_picture_blob')
+
+        email_messages = []
+        sent_to = []
+        skipped = []
+
+        for intern in active_interns:
+            if not intern.email:
+                skipped.append(f"{intern.name} (no email)")
                 continue
-            if not target_student_id and (not record or not record.am_time_in):
-                skipped.append(f"{intern.name} (absent today)")
-                continue
-            subject = '⏰ OJT Time-Out Reminder'
-            plain_body = f"Good afternoon, {intern.name}! Please TIME OUT before you leave ({date_str}). Log at: https://ojtdtr.systemproj.com"
 
-        html_body = get_reminder_html(intern.name, reminder_type, date_str)
+            record = Attendance.objects.filter(
+                student_id=intern.student_id,
+                date=today
+            ).first()
 
-        msg = EmailMultiAlternatives(
-            subject=subject,
-            body=plain_body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[intern.email]
-        )
-        msg.attach_alternative(html_body, "text/html")
-        email_messages.append(msg)
-        sent_to.append(intern.name)
+            if reminder_type == 'morning':
+                if not target_student_id and record and record.am_time_in:
+                    skipped.append(f"{intern.name} (already timed in)")
+                    continue
+                subject = '[REMINDER] OJT Time-In Reminder'
+                plain_body = f"Good morning, {intern.name}! Please TIME IN for your OJT today ({date_str}). Log at: https://ojtdtr.systemproj.com"
+            else:
+                if not target_student_id and record and record.pm_time_out:
+                    skipped.append(f"{intern.name} (already timed out)")
+                    continue
+                if not target_student_id and (not record or not record.am_time_in):
+                    skipped.append(f"{intern.name} (absent today)")
+                    continue
+                subject = '[REMINDER] OJT Time-Out Reminder'
+                plain_body = f"Good afternoon, {intern.name}! Please TIME OUT before you leave ({date_str}). Log at: https://ojtdtr.systemproj.com"
 
-    if not email_messages:
-        return Response({
-            "message": f"No {reminder_type} reminders needed. All active interns are up-to-date.",
-            "sent": 0,
-            "sent_to": [],
-            "skipped": skipped
-        })
+            html_body = get_reminder_html(intern.name, reminder_type, date_str)
 
-    def send_emails_now(messages, user, pw, target_student_id, reminder_type):
-        """Send emails immediately and raise if SMTP fails."""
-        try:
-            from django.core.mail import get_connection
-            connection = get_connection(
-                username=user,
-                password=pw,
-                fail_silently=False,
-                timeout=20
+            msg = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[intern.email]
             )
-            count = connection.send_messages(messages)
-        except Exception as first_error:
-            # Fallback to SSL Port 465 if default fails
+            msg.attach_alternative(html_body, "text/html")
+            email_messages.append(msg)
+            sent_to.append(intern.name)
+
+        if not email_messages:
+            return Response({
+                "message": f"No {reminder_type} reminders needed. All active interns are up-to-date.",
+                "sent": 0,
+                "sent_to": [],
+                "skipped": skipped
+            })
+
+        def send_emails_now_thread(messages, user, pw, target_student_id, reminder_type):
+            """Send emails and close connections properly in thread."""
+            from django.db import connections
             try:
+                from django.core.mail import get_connection
                 connection = get_connection(
-                    host=getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com'),
-                    port=465,
                     username=user,
                     password=pw,
-                    use_tls=False,
-                    use_ssl=True,
+                    fail_silently=False,
                     timeout=20
                 )
                 count = connection.send_messages(messages)
-            except Exception as second_error:
-                error_msg = f"Primary error: {str(first_error)}. Secondary error (465): {str(second_error)}"
-                raise Exception(error_msg)
-
-        # Log success
-        try:
-            logs = []
-            for msg in messages:
+            except Exception as first_error:
                 try:
-                    target = Intern.objects.get(email=msg.to[0])
-                    log_type = "manual" if target_student_id else reminder_type
-                    logs.append(EmailLog(intern=target, type=log_type, status='success'))
-                except: pass
-            if logs:
-                EmailLog.objects.bulk_create(logs)
-        except Exception as e:
-            print(f"ERROR LOGGING EMAILS: {str(e)}")
-        return count
+                    connection = get_connection(
+                        host=getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com'),
+                        port=465,
+                        username=user,
+                        password=pw,
+                        use_tls=False,
+                        use_ssl=True,
+                        timeout=20
+                    )
+                    count = connection.send_messages(messages)
+                except Exception as second_error:
+                    print(f"BACKGROUND EMAIL THREAD ERROR: {first_error}, {second_error}")
+                    return
 
-    def log_email_failure(messages, target_student_id, reminder_type, error_msg):
-        """Persist failed sends so admins can inspect them later."""
-        log_type = "manual" if target_student_id else reminder_type
-        for msg in messages:
+            # Log success
             try:
-                failed_target = Intern.objects.get(email=msg.to[0])
-                EmailLog.objects.create(
-                    intern=failed_target,
-                    type=log_type,
-                    status='failed',
-                    error_message=error_msg[:500]
-                )
-            except Exception:
-                pass
+                logs = []
+                for msg in messages:
+                    try:
+                        target = Intern.objects.get(email=msg.to[0])
+                        l_type = "manual" if target_student_id else reminder_type
+                        logs.append(EmailLog(intern=target, type=l_type, status='success'))
+                    except: pass
+                if logs:
+                    EmailLog.objects.bulk_create(logs)
+            except Exception as e:
+                print(f"ERROR LOGGING EMAILS IN THREAD: {str(e)}")
+            finally:
+                for conn in connections.all(): conn.close()
 
-    if target_student_id:
-        try:
-            count = send_emails_now(email_messages, user, pw, target_student_id, reminder_type)
-        except Exception as e:
-            error_msg = str(e)
-            print(f"MANUAL EMAIL ERROR: {error_msg}")
-            log_email_failure(email_messages, target_student_id, reminder_type, error_msg)
-            return Response({
-                "error": f"Email Error: {error_msg}. Check EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, and your SMTP settings."
-            }, status=500)
+        if target_student_id:
+            # Sync send for single student
+            try:
+                from django.core.mail import get_connection
+                connection = get_connection(username=user, password=pw, fail_silently=False, timeout=20)
+                count = connection.send_messages(email_messages)
+                
+                # Log success
+                log_target = active_interns[0]
+                EmailLog.objects.create(intern=log_target, type='manual', status='success')
+                
+                return Response({
+                    "message": f"Reminder sent successfully to {sent_to[0]}.",
+                    "sent": count,
+                    "sent_to": sent_to,
+                    "skipped": skipped,
+                    "mode": "sent"
+                })
+            except Exception as e:
+                error_msg = str(e)
+                # Fail log
+                try:
+                    failed_target = Intern.objects.get(student_id=target_student_id)
+                    EmailLog.objects.create(intern=failed_target, type='manual', status='failed', error_message=error_msg[:500])
+                except: pass
+                return Response({"error": f"Email Error: {error_msg}"}, status=500)
 
-        return Response({
-            "message": f"Reminder sent successfully to {sent_to[0]}.",
-            "sent": count,
-            "sent_to": sent_to,
-            "skipped": skipped,
-            "mode": "sent"
-        })
+        # Bulk send in background
+        thread = threading.Thread(
+            target=send_emails_now_thread,
+            args=(email_messages, user, pw, target_student_id, reminder_type)
+        )
+        thread.daemon = True
+        thread.start()
 
-    # Start the background thread
-    thread = threading.Thread(
-        target=send_emails_now,
-        args=(email_messages, user, pw, target_student_id, reminder_type)
-    )
-    thread.daemon = True
-    thread.start()
-
-    # Return immediately to avoid timeout
-    if target_student_id:
-        msg_text = f"Reminder for {sent_to[0]} is being processed and will be sent shortly."
-    else:
         msg_text = f"System-wide dispatch started for {len(email_messages)} intern(s). You can check the logs in a few moments."
 
-    return Response({
-        "message": msg_text,
-        "sent": len(email_messages),
-        "sent_queued": len(email_messages),
-        "sent_to": sent_to,
-        "skipped": skipped,
-        "mode": "background_processing"
-    })
+        return Response({
+            "message": msg_text,
+            "sent": len(email_messages),
+            "sent_queued": len(email_messages),
+            "sent_to": sent_to,
+            "skipped": skipped,
+            "mode": "background_processing"
+        })
+
+    except Exception as global_e:
+        print("GLOBAL SEND REMINDERS ERROR:")
+        traceback.print_exc()
+        return Response({"error": f"Internal Server Error: {str(global_e)}"}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

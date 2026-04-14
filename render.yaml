@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --no-input && python manage.py migrate
-    startCommand: gunicorn ojt_backend.wsgi:application
+    startCommand: gunicorn ojt_backend.wsgi:application --timeout 120 --workers 3
     autoDeploy: true
     envVars:
       - key: DEBUG
