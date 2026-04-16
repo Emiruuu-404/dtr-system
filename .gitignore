@@ -31,3 +31,4 @@ staticfiles/
 node_modules/
 frontend/build/
 frontend/.env
+backend/ojt_backend/google_credentials.json

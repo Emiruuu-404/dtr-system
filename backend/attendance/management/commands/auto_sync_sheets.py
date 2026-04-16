@@ -44,8 +44,13 @@ class Command(BaseCommand):
         scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
         
         try:
-            creds_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../ojt_backend/google_credentials.json'))
-            creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
+            if os.environ.get("GOOGLE_CREDENTIALS_JSON"):
+                import json
+                creds_dict = json.loads(os.environ.get("GOOGLE_CREDENTIALS_JSON"))
+                creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+            else:
+                creds_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../ojt_backend/google_credentials.json'))
+                creds = Credentials.from_service_account_file(creds_path, scopes=scopes)
             client = gspread.authorize(creds)
         except Exception as e:
             self.stderr.write(f"❌ Credentials Error: {e}")
@@ -88,21 +93,17 @@ class Command(BaseCommand):
         new_entries = 0
         updated_entries = 0
 
+        # Strict absolute indices based on Google Sheets API raw response
         MONTH_GROUPS = [
-            {"m": 1, "d": 0, "ai": 1, "ao": 2, "pi": 3, "po": 4},
-            {"m": 2, "d": 6, "ai": 7, "ao": 8, "pi": 9, "po": 10},
-            {"m": 3, "d": 12, "ai": 13, "ao": 14, "pi": 15, "po": 16},
-            {"m": 4, "d": 18, "ai": 19, "ao": 20, "pi": 21, "po": 22},
+            {"m": 1, "d": 1,   "ai": 2,  "ao": 3,  "pi": 4,  "po": 5},
+            {"m": 2, "d": 8,   "ai": 9,  "ao": 10, "pi": 11, "po": 12},
+            {"m": 3, "d": 15,  "ai": 16, "ao": 17, "pi": 18, "po": 19},
+            {"m": 4, "d": 22,  "ai": 23, "ao": 24, "pi": 25, "po": 26},
         ]
 
         for intern, block in blocks.items():
             self.stdout.write(f"Processing sheet block for {intern.name}...")
-            clean_block = []
-            for r in block:
-                while len(r) > 0 and str(r[0]).strip() == '':
-                    r.pop(0)
-                if len(r) > 5:  # Valid row length
-                    clean_block.append(r)
+            clean_block = block  # Do not modify columns with pop() because indices are absolute
             
             for row in clean_block:
                 for mg in MONTH_GROUPS:
