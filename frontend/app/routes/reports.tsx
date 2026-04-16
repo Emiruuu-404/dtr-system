@@ -246,7 +246,7 @@ export default function Reports() {
                 Total Progress
               </p>
               <p className="font-black text-green-700 text-xl sm:text-2xl flex items-baseline gap-1 whitespace-nowrap">
-                <span>{reportData?.formatted_monthly_hours || "0 h 0 min"}</span>
+                <span>{reportData?.formatted_total_hours || "0 h 0 min"}</span>
                 <span className="text-[10px] sm:text-sm font-bold text-gray-400">
                   / {totalRequired} h
                 </span>

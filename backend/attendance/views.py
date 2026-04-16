@@ -1938,7 +1938,7 @@ def send_reminder_emails(request):
                 if not target_student_id and record and record.am_time_in:
                     skipped.append(f"{intern.name} (already timed in)")
                     continue
-                subject = '[REMINDER] OJT Time-In Reminder'
+                subject = '⏰ OJT Time-In Reminder'
                 plain_body = f"Good morning, {intern.name}! Please TIME IN for your OJT today ({date_str}). Log at: https://ojtdtr.systemproj.com"
             else:
                 if not target_student_id and record and record.pm_time_out:
@@ -1947,7 +1947,7 @@ def send_reminder_emails(request):
                 if not target_student_id and (not record or not record.am_time_in):
                     skipped.append(f"{intern.name} (absent today)")
                     continue
-                subject = '[REMINDER] OJT Time-Out Reminder'
+                subject = '⏰ OJT Time-Out Reminder'
                 plain_body = f"Good afternoon, {intern.name}! Please TIME OUT before you leave ({date_str}). Log at: https://ojtdtr.systemproj.com"
 
             html_body = get_reminder_html(intern.name, reminder_type, date_str)
@@ -2100,4 +2100,24 @@ def get_email_logs(request):
     } for l in logs]
     return Response({"logs": results})
 
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def sync_sheets_view(request):
+    if not request.user.is_staff:
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+    
+    from django.core.management import call_command
+    from io import StringIO
+    
+    out = StringIO()
+    try:
+        call_command('auto_sync_sheets', stdout=out, stderr=out)
+        output = out.getvalue()
+        if "❌" in output:
+             return JsonResponse({"error": output}, status=500)
+        return JsonResponse({"message": "Successfully synced from Google Sheets", "output": output})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 

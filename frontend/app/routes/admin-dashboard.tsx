@@ -488,6 +488,32 @@ export default function AdminDashboard() {
                             {sendingReminders ? 'Sending...' : 'Send Reminders'}
                         </button>
                         <button 
+                            onClick={async () => {
+                                setSendingReminders(true);
+                                try {
+                                    const adminToken = localStorage.getItem("admin_token");
+                                    const res = await fetch(`${API_URL}/api/sync-sheets/`, {
+                                        method: 'POST',
+                                        headers: { 'Authorization': `Bearer ${adminToken}` }
+                                    });
+                                    const d = await res.json();
+                                    if (res.ok) {
+                                        setFeedbackModal({ show: true, type: 'success', message: "Google Sheets Sync Complete." });
+                                        fetchDashboard();
+                                    } else {
+                                        setFeedbackModal({ show: true, type: 'error', message: d.error || "Failed to sync" });
+                                    }
+                                } catch (e) {
+                                    setFeedbackModal({ show: true, type: 'error', message: "Network error" });
+                                }
+                                setSendingReminders(false);
+                            }}
+                            disabled={sendingReminders}
+                            className="bg-blue-600 text-white px-4 py-2 border-2 border-blue-900 font-bold uppercase tracking-wide hover:bg-blue-700 transition-colors text-xs disabled:opacity-50"
+                        >
+                            {sendingReminders ? 'Syncing...' : 'Sync Sheets'}
+                        </button>
+                        <button 
                             onClick={handleExportCSV}
                             className="bg-green-800 text-white px-4 py-2 border-2 border-green-900 font-bold uppercase tracking-wide hover:bg-green-900 transition-colors text-xs"
                         >
