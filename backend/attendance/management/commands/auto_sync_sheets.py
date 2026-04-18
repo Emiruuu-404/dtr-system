@@ -34,7 +34,7 @@ class Command(BaseCommand):
             raw_first = parts[0].title()
 
         from django.db.models import Q
-        existing = Intern.objects.filter(name__icontains=raw_first).filter(name__icontains=last_name).first()
+        existing = Intern.objects.filter(name__icontains=raw_first).filter(name__icontains=last_name).order_by('id').first()
         if existing:
             return existing
 
