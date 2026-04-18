@@ -34,7 +34,19 @@ class Command(BaseCommand):
             raw_first = parts[0].title()
 
         from django.db.models import Q
-        existing = Intern.objects.filter(name__icontains=raw_first).filter(name__icontains=last_name).order_by('id').first()
+        existing_list = Intern.objects.filter(name__icontains=raw_first).filter(name__icontains=last_name).order_by('id')
+        
+        # Best effort to find the real account: real student IDs end with numbers (e.g., 22-0284)
+        existing = None
+        for cand in existing_list:
+            if '-' in cand.student_id and cand.student_id.split('-')[-1].isdigit():
+                existing = cand
+                break
+                
+        # Fallback to the first matched account if no numeric ID is found
+        if not existing and existing_list.exists():
+            existing = existing_list.first()
+
         if existing:
             return existing
 
