@@ -9,13 +9,14 @@ A full-stack **Daily Time Record (DTR)** and attendance tracking system built fo
 ## ✨ Features
 
 ### 👤 Intern Portal
-- **Dashboard** — Overview of today's attendance status, total hours rendered, and quick actions
+- **Dashboard** — Overview of today's attendance status, cumulative total OJT hours, and quick actions
 - **Time Logging** — Clock in/out for AM and PM shifts with real-time timestamps
 - **Accomplishment Reports** — Submit daily accomplishments with photo documentation and notes
 - **Attendance History** — View and edit past attendance records with AM/PM breakdown
 - **Leaderboards** — Rankings of interns by total OJT hours rendered
 - **DTR Export** — Generate and download DTR documents (Civil Service Form 48) as PDF, with selectable date ranges (1st–15th or 16th–end of month)
-- **Settings** — Account management and password changes
+- **FastChat** — Built-in chat messaging system for direct intern-admin communication
+- **Settings** — Account management, update ID number, password changes, and profile picture updates (with database Blob persistence)
 
 ### 🔐 Security
 - JWT-based authentication with session tokens
@@ -24,8 +25,10 @@ A full-stack **Daily Time Record (DTR)** and attendance tracking system built fo
 - Password reset via forgot-password flow
 
 ### 🛡️ Admin Panel
-- Admin login and dashboard (`/admin`)
-- Manage intern records and attendance data
+- **Admin Dashboard** — Manage intern records, view cumulative reports, and monitor attendance data
+- **Google Sheets Sync** — Automatically import attendance from Google Sheets via real-time API integration
+- **Automated Reminders** — Background email dispatch via Brevo HTTP API for incomplete time entries
+- **FastChat Management** — Centralized interface to communicate directly with interns
 
 ### 📱 Mobile-First Design
 - Fully responsive bottom navigation bar
@@ -65,9 +68,10 @@ The interface follows a **Flat Design 2.0** aesthetic — clean, minimal, and fu
 | [Django REST Framework](https://www.django-rest-framework.org/) | REST API |
 | [SimpleJWT](https://django-rest-framework-simplejwt.readthedocs.io/) | JWT authentication |
 | [PostgreSQL](https://www.postgresql.org/) | Production database |
-| [ReportLab](https://www.reportlab.com/) | PDF generation |
+| [ReportLab](https://www.reportlab.com/) & [PyPDF](https://pypi.org/project/pypdf/) | PDF generation |
 | [Gunicorn](https://gunicorn.org/) | WSGI HTTP server |
 | [WhiteNoise](https://whitenoise.readthedocs.io/) | Static file serving |
+| [Brevo API](https://www.brevo.com/) | Automated Email Delivery |
 
 ### Deployment
 | Service | Purpose |
@@ -188,6 +192,8 @@ dtr-system/
 | `CORS_ALLOW_ALL_ORIGINS` | Allow all CORS origins | `True` |
 | `CORS_ALLOWED_ORIGINS` | Whitelisted frontend URLs | `http://localhost:5173` |
 | `DATABASE_URL` | PostgreSQL connection string (production) | — |
+| `GOOGLE_CREDENTIALS_JSON` | Google Sheets Service Account JSON string for auto-sync | — |
+| `BREVO_API_KEY` | Brevo v3 HTTP API Key for automated email reminders | — |
 
 ### Frontend (`frontend/.env`)
 | Variable | Description | Default |

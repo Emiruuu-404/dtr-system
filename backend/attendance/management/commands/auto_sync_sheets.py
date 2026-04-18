@@ -26,10 +26,17 @@ class Command(BaseCommand):
             last, first = name_str.split(',', 1)
             last_name = last.strip().title()
             formatted_name = f"{first.strip().title()} {last_name}"
+            raw_first = first.strip().split()[0].title()
         else:
             parts = name_str.split()
             last_name = parts[-1].title()
             formatted_name = name_str.title()
+            raw_first = parts[0].title()
+
+        from django.db.models import Q
+        existing = Intern.objects.filter(name__icontains=raw_first).filter(name__icontains=last_name).first()
+        if existing:
+            return existing
 
         student_id = f"22-{last_name[:3].upper()}{len(name_str)}"
         email = f"{student_id.lower()}@cbsua.edu.ph"
