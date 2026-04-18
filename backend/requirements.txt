@@ -23,3 +23,5 @@ pdfplumber
 djangorestframework-simplejwt==5.5.1
 reportlab==4.4.10
 pypdf
+gspread
+google-auth
