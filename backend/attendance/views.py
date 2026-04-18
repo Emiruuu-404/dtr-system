@@ -2109,15 +2109,25 @@ def sync_sheets_view(request):
         return JsonResponse({"error": "Unauthorized"}, status=403)
     
     from django.core.management import call_command
-    from io import StringIO
-    
-    out = StringIO()
-    try:
-        call_command('auto_sync_sheets', stdout=out, stderr=out)
-        output = out.getvalue()
-        if "❌" in output:
-             return JsonResponse({"error": output}, status=500)
-        return JsonResponse({"message": "Successfully synced from Google Sheets", "output": output})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    from django.db import connections
+    import threading
+
+    def run_sync():
+        from io import StringIO
+        out = StringIO()
+        try:
+            call_command('auto_sync_sheets', stdout=out, stderr=out)
+            output = out.getvalue()
+            print("Background sync finished:", output)
+        except Exception as e:
+            print("Background sync error:", e)
+        finally:
+            for conn in connections.all():
+                conn.close()
+
+    thread = threading.Thread(target=run_sync)
+    thread.daemon = True
+    thread.start()
+
+    return JsonResponse({"message": "Background sync started. The data will be updated in a minute or two."})
 
